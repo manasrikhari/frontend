@@ -73,8 +73,13 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
         const shapeIds = Array.from(editor.getCurrentPageShapeIds());
         if (shapeIds.length === 0) continue;
 
-        // Export shapeIds as PNG blob
-        const { blob, width, height } = await editor.toImage(shapeIds, { format: 'png', background: true });
+        // Export shapeIds as JPEG blob with compression and explicit scale limit
+        const { blob, width, height } = await editor.toImage(shapeIds, {
+          format: 'jpeg',
+          background: true,
+          quality: 0.75,
+          scale: 1.5,
+        });
         
         // Convert blob to DataURL
         const reader = new FileReader();
@@ -104,7 +109,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
         if (addedPageCount > 0) {
           pdf.addPage('a4', 'landscape');
         }
-        pdf.addImage(dataUrl, 'PNG', x, y, printWidth, printHeight);
+        pdf.addImage(dataUrl, 'JPEG', x, y, printWidth, printHeight, undefined, 'FAST');
         addedPageCount++;
       }
 
