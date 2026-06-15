@@ -31,19 +31,24 @@ body {
 
 /* Custom premium styling for participant tiles */
 .lk-participant-tile {
-  border-radius: 16px !important;
+  border-radius: 12px !important;
   border: 1px solid rgba(255, 255, 255, 0.05) !important;
   background-color: rgba(17, 24, 39, 0.6) !important;
   backdrop-filter: blur(8px);
   overflow: hidden !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3) !important;
+  container-type: inline-size; /* Added container-type for responsive font sizing */
+}
+
+/* Screen sharing tiles should not have rounded corners */
+.lk-participant-tile.lk-screen-share-tile {
+  border-radius: 0px !important;
 }
 
 .lk-participant-tile:hover {
   border-color: rgba(99, 102, 241, 0.3) !important;
   box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.15) !important;
-  transform: translateY(-2px);
 }
 
 .lk-participant-tile[data-lk-speaking="true"] {
@@ -94,4 +99,76 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Premium Zoom-like UI when Participant Video is Muted */
+
+/* Hide default SVG avatar icon */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-participant-placeholder svg {
+  display: none !important;
+}
+
+/* Center the metadata container and make it cover the entire tile */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-participant-metadata {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Style the metadata item container holding name and microphone status */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-participant-metadata-item:first-child {
+  background-color: transparent !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+}
+
+/* Center and scale the participant name like Zoom (using container query units for responsiveness) */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-participant-name {
+  font-size: clamp(1.1rem, 8cqw, 2rem) !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+  text-align: center !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90cqw;
+}
+
+/* Keep the microphone indicator in the bottom-left corner */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-track-muted-indicator-microphone {
+  position: absolute !important;
+  bottom: 12px !important;
+  left: 12px !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 4px !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-inline-end: 0 !important;
+}
+
+/* Keep the connection quality indicator in the bottom-right corner */
+.lk-participant-tile[data-lk-video-muted="true"] .lk-connection-quality {
+  position: absolute !important;
+  bottom: 12px !important;
+  right: 12px !important;
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+  padding: 2px !important;
 }

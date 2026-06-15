@@ -7,11 +7,18 @@ import {
   useTracks,
   useLocalParticipant,
   useConnectionState,
+  useRoomContext,
 } from '@livekit/components-react';
 import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import WhiteboardWrapper from './WhiteboardWrapper';
 import type { IceServer } from '@/lib/api';
+
+import Header from './classroom/Header';
+import Controls from './classroom/Controls';
+import FloatingTeacherTile from './classroom/FloatingTeacherTile';
+import StudentSidebar from './classroom/StudentSidebar';
+import GridView from './classroom/GridView';
 
 interface VideoRoomProps {
   token: string;
@@ -32,13 +39,20 @@ interface RoomContentProps {
 }
 
 function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentProps) {
+  const room = useRoomContext();
+  const connectionState = useConnectionState();
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
+  const isTeacher = localParticipant?.metadata === 'teacher';
+
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [studentGridPage, setStudentGridPage] = useState(0);
+  const [sidebarPage, setSidebarPage] = useState(0);
+  const [lastActiveStudentSid, setLastActiveStudentSid] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [editor, setEditor] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedPdfUrl, setExportedPdfUrl] = useState<string | null>(null);
-
-  const connectionState = useConnectionState();
 
   const handleEditorMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
@@ -142,6 +156,18 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
       
       const downloadUrl = `${SYNC_WORKER_URL}/api/pdf/${roomName}`;
       setExportedPdfUrl(downloadUrl);
+
+      // Broadcast notes exported notification to students
+      if (localParticipant) {
+        try {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(JSON.stringify({ type: 'NOTES_EXPORTED' }));
+          await localParticipant.publishData(data, { reliable: true });
+        } catch (broadcastErr) {
+          console.error('Failed to broadcast NOTES_EXPORTED:', broadcastErr);
+        }
+      }
+
       alert('Class ended! Whiteboard notes exported and uploaded successfully.');
     } catch (err) {
       console.error(err);
@@ -159,8 +185,6 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
     ],
     { onlySubscribed: false }
   );
-
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
 
   const screenShareTrackRef = tracks.find(t => t.source === Track.Source.ScreenShare);
   const hasScreenShare = !!screenShareTrackRef;
@@ -194,16 +218,13 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
     if (localParticipant) {
       try {
         // Optimize publishing options for screen sharing legible text:
-        // Set higher resolution, lower framerate limit, and text optimization hint
+        // Set 1080p, 15fps framerate limit, and text optimization hint
         await localParticipant.setScreenShareEnabled(!isScreenShareEnabled, {
           audio: true,
           contentHint: 'text',
+          resolution: { width: 1920, height: 1080, frameRate: 15 },
         }, {
           simulcast: true,
-          videoEncoding: {
-            maxFramerate: 15,
-            maxBitrate: 1500000,
-          },
           screenShareEncoding: {
             maxFramerate: 15,
             maxBitrate: 1500000,
@@ -215,15 +236,281 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
     }
   }, [localParticipant, isScreenShareEnabled]);
 
-  // Determine grid columns based on participant count
-  const getGridColsClass = (count: number) => {
-    if (count <= 1) return 'grid-cols-1 max-w-3xl';
-    if (count === 2) return 'grid-cols-2 max-w-5xl';
-    if (count <= 4) return 'grid-cols-2 max-w-5xl';
-    return 'grid-cols-3 w-full';
-  };
+  // Whiteboard Toggle that broadcasts state to all participants
+  const toggleWhiteboard = useCallback(async () => {
+    const nextState = !showWhiteboard;
+    setShowWhiteboard(nextState);
+    if (isTeacher && localParticipant) {
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(JSON.stringify({ type: 'SET_WHITEBOARD', active: nextState }));
+        await localParticipant.publishData(data, { reliable: true });
+      } catch (err) {
+        console.error('Failed to broadcast whiteboard state:', err);
+      }
+    }
+  }, [showWhiteboard, isTeacher, localParticipant]);
 
-  const isTeacher = localParticipant?.metadata === 'teacher';
+  // Listen for whiteboard state broadcasts and note exports
+  useEffect(() => {
+    if (!room) return;
+    const handleDataReceived = (payload: Uint8Array, participant: any) => {
+      try {
+        const decoder = new TextDecoder();
+        const msg = JSON.parse(decoder.decode(payload));
+        if (msg.type === 'SET_WHITEBOARD') {
+          setShowWhiteboard(msg.active);
+        } else if (msg.type === 'QUERY_WHITEBOARD_STATE') {
+          if (isTeacher && localParticipant) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(JSON.stringify({ type: 'SET_WHITEBOARD', active: showWhiteboard }));
+            localParticipant.publishData(data, { reliable: true }).catch(err => {
+              console.error('Failed to reply to whiteboard query:', err);
+            });
+          }
+        } else if (msg.type === 'NOTES_EXPORTED') {
+          const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
+          setExportedPdfUrl(`${SYNC_WORKER_URL}/api/pdf/${roomName}`);
+        }
+      } catch (err) {
+        console.error('Failed to parse data channel message:', err);
+      }
+    };
+    room.on('dataReceived', handleDataReceived);
+    return () => {
+      room.off('dataReceived', handleDataReceived);
+    };
+  }, [room, isTeacher, showWhiteboard, localParticipant, roomName]);
+
+  // Query whiteboard state when joining
+  useEffect(() => {
+    if (!room || isTeacher || !localParticipant) return;
+    const timer = setTimeout(() => {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({ type: 'QUERY_WHITEBOARD_STATE' }));
+      localParticipant.publishData(data, { reliable: true }).catch(err => {
+        console.error('Failed to query whiteboard state:', err);
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [room, isTeacher, localParticipant]);
+
+  // Extract separate camera track categories
+  const remoteStudents = useMemo(() => {
+    return cameraTracks.filter(t => 
+      t.participant.metadata !== 'teacher' && 
+      t.participant.sid !== localParticipant?.sid
+    );
+  }, [cameraTracks, localParticipant]);
+
+  const teacherTrack = useMemo(() => {
+    return cameraTracks.find(t => t.participant.metadata === 'teacher');
+  }, [cameraTracks]);
+
+  const localTrack = useMemo(() => {
+    return cameraTracks.find(t => t.participant.sid === localParticipant?.sid);
+  }, [cameraTracks, localParticipant]);
+
+  const activeStudentTrack = useMemo(() => {
+    if (remoteStudents.length === 0) return null;
+    const active = remoteStudents.find(t => t.participant.sid === lastActiveStudentSid);
+    return active || remoteStudents[0];
+  }, [remoteStudents, lastActiveStudentSid]);
+
+  // Sorted list of remote student camera tracks
+  const [orderedRemoteStudents, setOrderedRemoteStudents] = useState<typeof remoteStudents>([]);
+  // Keep track of the last spoke timestamps for the remote student queue
+  const lastSpokeRef = useRef<Record<string, number>>({});
+
+  // Synchronize orderedRemoteStudents queue when participants join/leave or change camera states
+  useEffect(() => {
+    setOrderedRemoteStudents(prev => {
+      const filtered = prev.filter(p => remoteStudents.some(r => r.participant.sid === p.participant.sid));
+      const added = remoteStudents.filter(r => !filtered.some(f => f.participant.sid === r.participant.sid));
+      const nextQueue = [...filtered, ...added];
+      
+      // Prevent infinite loops by returning prev if tracks and participants are identical
+      const isIdentical = prev.length === nextQueue.length && 
+                          prev.every((t, i) => {
+                            const nextItem = nextQueue[i];
+                            return t.participant === nextItem.participant &&
+                                   t.source === nextItem.source &&
+                                   t.publication === nextItem.publication;
+                          });
+      
+      if (isIdentical) {
+        return prev;
+      }
+      return nextQueue;
+    });
+  }, [remoteStudents]);
+
+  // Track active speaker student with queue swap logic
+  useEffect(() => {
+    if (!room) return;
+
+    const handleActiveSpeakers = (speakers: any[]) => {
+      // Find remote student speakers
+      const studentSpeakers = speakers.filter(s => 
+        s.metadata === 'student' && 
+        s.sid !== localParticipant?.sid
+      );
+      
+      if (studentSpeakers.length === 0) return;
+
+      // Update timestamps
+      const now = Date.now();
+      studentSpeakers.forEach(s => {
+        lastSpokeRef.current[s.sid] = now;
+      });
+
+      // Update teacher's large featured tile last active speaker student
+      const activeSpeaker = studentSpeakers[0];
+      setLastActiveStudentSid(activeSpeaker.sid);
+
+      // Perform queue swapping to keep speaking students visible
+      setOrderedRemoteStudents(prev => {
+        if (prev.length === 0) return prev;
+
+        const visibleLimit = showSplitLayout ? 2 : 3;
+        
+        // Find if this speaker is in the top visible slots
+        const visibleIndex = prev.findIndex(t => t.participant.sid === activeSpeaker.sid);
+        
+        // If speaker is not in top slots, swap them in
+        if (visibleIndex >= visibleLimit || visibleIndex === -1) {
+          const newQueue = [...prev];
+          const sIndex = prev.findIndex(t => t.participant.sid === activeSpeaker.sid);
+          if (sIndex === -1) return prev; // No camera track for this speaker
+
+          // Find the visible slot (0 to visibleLimit-1) that spoke least recently
+          let oldestIndex = 0;
+          let oldestTime = lastSpokeRef.current[prev[0]?.participant.sid] || 0;
+          
+          const limit = Math.min(prev.length, visibleLimit);
+          for (let i = 1; i < limit; i++) {
+            const sid = prev[i].participant.sid;
+            const time = lastSpokeRef.current[sid] || 0;
+            if (time < oldestTime) {
+              oldestTime = time;
+              oldestIndex = i;
+            }
+          }
+          
+          // Swap the oldest visible student with the speaking student
+          const temp = newQueue[oldestIndex];
+          newQueue[oldestIndex] = newQueue[sIndex];
+          newQueue[sIndex] = temp;
+          
+          return newQueue;
+        }
+        
+        return prev;
+      });
+    };
+
+    room.on('activeSpeakersChanged', handleActiveSpeakers);
+    return () => {
+      room.off('activeSpeakersChanged', handleActiveSpeakers);
+    };
+  }, [room, localParticipant, showSplitLayout]);
+
+  // Check R2 bucket periodically for exported notes PDF
+  useEffect(() => {
+    let active = true;
+    const checkPdf = async () => {
+      try {
+        const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
+        const res = await fetch(`${SYNC_WORKER_URL}/api/pdf/${roomName}`, { method: 'HEAD' });
+        if (res.ok && active) {
+          setExportedPdfUrl(`${SYNC_WORKER_URL}/api/pdf/${roomName}`);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    checkPdf();
+    const interval = setInterval(checkPdf, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [roomName]);
+
+  // Grid View student list (uses orderedRemoteStudents)
+  const gridStudents = useMemo(() => {
+    if (isTeacher) {
+      const gridRemoteStudents = orderedRemoteStudents.filter(t => t.participant.sid !== activeStudentTrack?.participant.sid);
+      const start = studentGridPage * 3;
+      const pageRemotes = gridRemoteStudents.slice(start, start + 3);
+      return [...pageRemotes, localTrack].filter((t): t is NonNullable<typeof t> => !!t);
+    } else {
+      const start = studentGridPage * 3;
+      const pageRemotes = orderedRemoteStudents.slice(start, start + 3);
+      return [...pageRemotes, localTrack].filter((t): t is NonNullable<typeof t> => !!t);
+    }
+  }, [isTeacher, orderedRemoteStudents, activeStudentTrack, studentGridPage, localTrack]);
+
+  // Sidebar student list (Split View - uses orderedRemoteStudents and places localTrack at Slot 4 / index 2)
+  const sidebarStudents = useMemo(() => {
+    if (isTeacher) {
+      return orderedRemoteStudents;
+    } else {
+      const list = [...orderedRemoteStudents];
+      const filteredList = list.filter(t => t.participant.sid !== localParticipant?.sid);
+      if (localTrack) {
+        filteredList.splice(2, 0, localTrack);
+      }
+      return filteredList.filter((t): t is NonNullable<typeof t> => !!t);
+    }
+  }, [isTeacher, orderedRemoteStudents, localTrack, localParticipant?.sid]);
+
+  const pageSidebarStudents = useMemo(() => {
+    const start = sidebarPage * 3;
+    return sidebarStudents.slice(start, start + 3);
+  }, [sidebarStudents, sidebarPage]);
+
+  // Max pages for dynamic pagination bound checks
+  const maxGridPage = useMemo(() => {
+    const gridRemoteCount = isTeacher 
+      ? remoteStudents.filter(t => t.participant.sid !== activeStudentTrack?.participant.sid).length
+      : remoteStudents.length;
+    return Math.max(0, Math.ceil(gridRemoteCount / 3) - 1);
+  }, [remoteStudents, isTeacher, activeStudentTrack]);
+
+  const maxSidebarPage = useMemo(() => {
+    return Math.max(0, Math.ceil(sidebarStudents.length / 3) - 1);
+  }, [sidebarStudents]);
+
+  const handlePrevGridPage = useCallback(() => {
+    setStudentGridPage(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const handleNextGridPage = useCallback(() => {
+    setStudentGridPage(prev => Math.min(maxGridPage, prev + 1));
+  }, [maxGridPage]);
+
+  const handlePrevSidebarPage = useCallback(() => {
+    setSidebarPage(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const handleNextSidebarPage = useCallback(() => {
+    setSidebarPage(prev => Math.min(maxSidebarPage, prev + 1));
+  }, [maxSidebarPage]);
+
+  // Reset pagination index if out of bounds
+  useEffect(() => {
+    if (studentGridPage > maxGridPage) {
+      setStudentGridPage(maxGridPage);
+    }
+  }, [studentGridPage, maxGridPage]);
+
+  useEffect(() => {
+    if (sidebarPage > maxSidebarPage) {
+      setSidebarPage(maxSidebarPage);
+    }
+  }, [sidebarPage, maxSidebarPage]);
+
   const showReconnecting = connectionState === 'reconnecting';
 
   if (connectionState === 'disconnected') {
@@ -259,7 +546,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
       
       {/* Reconnecting Overlay */}
       {showReconnecting && (
-        <div className="absolute inset-0 bg-[#030712]/80 backdrop-blur-md z-50 flex items-center justify-center pointer-events-auto">
+        <div className="absolute inset-0 bg-[#030712]/80 backdrop-blur-md z-[1000] flex items-center justify-center pointer-events-auto">
           <div className="text-center space-y-4">
             <svg className="w-12 h-12 animate-spin text-primary mx-auto" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -276,42 +563,25 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
       {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
-        {/* Header Bar */}
-        <header className="h-16 px-6 border-b border-border/30 flex justify-between items-center bg-[#090d1a]/85 backdrop-blur-md z-30 select-none">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-base text-white tracking-wide">OpenGrapes Live</span>
-            <span className="px-2.5 py-0.5 rounded-full bg-primary/20 text-xs font-semibold text-primary">{roomName}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleCopyLink}
-              className="px-4 py-2 bg-surface-light/50 border border-border/40 hover:bg-border/30 rounded-xl text-xs text-white font-semibold flex items-center gap-2 cursor-pointer transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3" />
-              </svg>
-              {isCopied ? 'Link Copied!' : 'Copy Invite Link'}
-            </button>
-            
-            {/* Download Notes PDF */}
-            <button
-              onClick={() => {
-                const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
-                window.open(`${SYNC_WORKER_URL}/api/pdf/${roomName}`, '_blank');
-              }}
-              className="px-4 py-2 bg-[#10b981]/20 border border-[#10b981]/40 hover:bg-[#10b981]/30 rounded-xl text-xs text-[#10b981] font-semibold flex items-center gap-2 cursor-pointer transition-colors"
-              title="Download Class Notes PDF"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download Notes
-            </button>
-          </div>
-        </header>
+        {/* <Header
+          roomName={roomName}
+          isFocusMode={isFocusMode}
+          setIsFocusMode={setIsFocusMode}
+          showSplitLayout={showSplitLayout}
+          isCopied={isCopied}
+          handleCopyLink={handleCopyLink}
+          exportedPdfUrl={exportedPdfUrl}
+        /> */}
 
         {/* Content Viewport */}
         <div className="flex-1 overflow-hidden relative bg-[#060b18] pb-24">
+          
+          <FloatingTeacherTile
+            teacherTrack={teacherTrack}
+            isFocusMode={isFocusMode}
+            showSplitLayout={showSplitLayout}
+          />
+
           {showWhiteboard ? (
             /* Whiteboard takes center stage */
             <div className="w-full h-full bg-white relative">
@@ -319,278 +589,57 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
             </div>
           ) : hasScreenShare && screenShareTrackRef ? (
             /* Screen Share takes center stage */
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative">
-                <ParticipantTile trackRef={screenShareTrackRef} />
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl">
+                <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
               </div>
             </div>
           ) : (
-            /* Standard Grid View */
-            <div className="w-full h-full p-6 flex items-center justify-center overflow-hidden">
-              {cameraTracks.length === 0 ? (
-                <div className="text-center space-y-3 select-none">
-                  <svg className="w-12 h-12 mx-auto text-white/20 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-                  </svg>
-                  <p className="text-sm text-foreground/30 font-medium">Connecting you to the room...</p>
-                </div>
-              ) : (
-                <div className={`grid gap-4 w-full h-full justify-center items-center ${getGridColsClass(cameraTracks.length)}`}>
-                  {cameraTracks.map(trackRef => (
-                    <div 
-                      key={trackRef.participant.sid} 
-                      className="w-full h-full relative aspect-video max-h-full flex items-center justify-center"
-                    >
-                      <ParticipantTile trackRef={trackRef} className="w-full h-full" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <GridView
+              isTeacher={isTeacher}
+              activeStudentTrack={activeStudentTrack}
+              teacherTrack={teacherTrack}
+              remoteStudents={remoteStudents}
+              gridStudents={gridStudents}
+              maxGridPage={maxGridPage}
+              studentGridPage={studentGridPage}
+              handlePrevGridPage={handlePrevGridPage}
+              handleNextGridPage={handleNextGridPage}
+              cameraTracksCount={cameraTracks.length}
+            />
           )}
 
-          {/* Glassmorphic Controls Bar (Floating at the bottom of the main viewport) */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
-            {/* Microphone Toggle */}
-            <button
-              onClick={toggleMicrophone}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                isMicrophoneEnabled
-                  ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-                  : 'bg-red-600 hover:bg-red-500 text-white'
-              }`}
-              title={isMicrophoneEnabled ? 'Mute Microphone' : 'Unmute Microphone'}
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                <path 
-                  d="M9.30001 6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M15 20.4H9.00001M12 16.5V20.4M12 16.5C9.34905 16.5 7.20001 14.351 7.20001 11.7V9.30001M12 16.5C14.651 16.5 16.8 14.351 16.8 11.7V9.30001M12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4Z" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                {!isMicrophoneEnabled && (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                )}
-              </svg>
-            </button>
-
-            {/* Camera Toggle */}
-            <button
-              onClick={toggleCamera}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                isCameraEnabled
-                  ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-                  : 'bg-red-600 hover:bg-red-500 text-white'
-              }`}
-              title={isCameraEnabled ? 'Turn Off Camera' : 'Turn On Camera'}
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                <path 
-                  d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <path 
-                  d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                {!isCameraEnabled && (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                )}
-              </svg>
-            </button>
-
-            {/* Screen Share Toggle */}
-            <button
-              onClick={toggleScreenShare}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                isScreenShareEnabled
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-              }`}
-              title={isScreenShareEnabled ? 'Stop Screen Share' : 'Share Screen'}
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                <path 
-                  d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M14.3622 16.8768H22.7544C22.7796 16.8768 22.8 16.8972 22.8 16.9224C22.8 18.2227 21.7459 19.2768 20.4457 19.2768H3.55437C2.25409 19.2768 1.20001 18.2227 1.20001 16.9224C1.20001 16.8972 1.22045 16.8768 1.24566 16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <path 
-                  d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-
-            {/* Whiteboard Toggle */}
-            <button
-              onClick={() => setShowWhiteboard(prev => !prev)}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                showWhiteboard
-                  ? 'bg-primary hover:bg-primary-hover text-white'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-              }`}
-              title={showWhiteboard ? 'Close Collaborative Whiteboard' : 'Open Collaborative Whiteboard'}
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 25" fill="none" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                <path 
-                  d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path 
-                  d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-                <g filter="url(#filter0_d_5_489)">
-                  <path 
-                    d="M12.8077 6.46792C13.4209 5.67466 14.5913 5.60007 15.3003 6.30905C16.0092 7.01795 15.9347 8.18816 15.1416 8.80146L11.3602 11.7258C11.2889 11.7809 11.1879 11.7744 11.1242 11.7108L9.89915 10.4857C9.83548 10.422 9.82904 10.321 9.88411 10.2497L12.8077 6.46792Z" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                  <path 
-                    d="M11.8477 11.0978L10.5112 9.76138" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                  <path 
-                    d="M9.90984 10.4964L11.1126 11.6992C11.1544 11.741 11.1725 11.8008 11.1609 11.8587L11.0203 12.5617C10.9123 13.1017 10.5201 13.5407 9.99563 13.7085L7.77427 14.4193C7.60846 14.4724 7.4269 14.4284 7.3038 14.3053C7.18069 14.1821 7.13668 14.0006 7.18974 13.8348L7.90057 11.6134C8.06839 11.089 8.50736 10.6967 9.04731 10.5887L9.75035 10.4481C9.80824 10.4366 9.86809 10.4547 9.90984 10.4964Z" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                  <path 
-                    d="M7.3038 14.3052L9.04117 12.5679" 
-                    stroke="currentColor" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                  <path 
-                    d="M8.94331 12.2028C8.868 12.4838 9.1252 12.741 9.40627 12.6657V12.6657C9.68734 12.5904 9.78148 12.2391 9.57572 12.0333V12.0333C9.36996 11.8276 9.01863 11.9217 8.94331 12.2028V12.2028Z" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                  <path 
-                    d="M7.04752 15.84H9.09634C9.38875 15.84 9.67211 15.7386 9.89813 15.5531L10.4936 15.0644C10.6135 14.9659 10.7863 14.9659 10.9063 15.0644L11.5024 15.5537C11.728 15.7388 12.0108 15.84 12.3026 15.84H12.4144C12.8797 15.84 13.2948 15.5478 13.4519 15.1099L14.4046 12.4537C14.4332 12.3742 14.5456 12.3742 14.5741 12.4537L15.3899 14.7281C15.6292 15.3951 16.2614 15.84 16.97 15.84H17.1275" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                </g>
-                <defs>
-                  <filter id="filter0_d_5_489" x="1.70001" y="4.5" width="20.6" height="20.6" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                    <feFlood floodOpacity={0} result="BackgroundImageFix"/>
-                    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                    <feOffset dy={4}/>
-                    <feGaussianBlur stdDeviation={2}/>
-                    <feComposite in2="hardAlpha" operator="out"/>
-                    <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
-                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_5_489"/>
-                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_5_489" result="shape"/>
-                  </filter>
-                </defs>
-              </svg>
-            </button>
-
-            {/* End Class / Export Button (Visible only to Teacher) */}
-            {isTeacher && (
-              <button
-                onClick={handleEndClass}
-                disabled={isExporting}
-                className="w-15 h-12 rounded-full bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg active:scale-95"
-                title="End Class & Export Notes"
-              >
-                {isExporting ? (
-                  <svg className="w-6 h-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                )}
-              </button>
-            )}
-
-            {/* Leave Room Button */}
-            <button
-              onClick={onLeave}
-              className="w-15 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg"
-              title="Leave Room"
-            >
-              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1} xmlns="http://www.w3.org/2000/svg">
-                <path 
-                  d="M16.2426 14.7441C16.1035 14.6935 15.9638 14.6454 15.8234 14.5999C15.2443 14.4123 14.9034 13.7877 15.1171 13.2177C15.4113 12.4332 14.8314 11.5964 13.9935 11.5964H10.2567C9.4189 11.5964 8.83896 12.4332 9.13315 13.2177C9.33571 13.7579 9.0062 14.349 8.4534 14.514C8.2199 14.5836 7.98794 14.6604 7.75785 14.7441C7.29867 14.9112 6.85182 15.1046 6.4192 15.3225C5.7059 15.6819 4.79793 15.3721 4.55111 14.6125L3.90067 12.6106C3.79359 12.2811 3.8866 11.9171 4.15205 11.6944C6.38599 9.81989 9.20895 8.79242 12.1251 8.79242C15.0413 8.79242 17.8643 9.81989 20.0982 11.6944C20.3639 11.9173 20.4569 12.2815 20.3498 12.6113L19.664 14.7218C19.4141 15.4909 18.488 15.7971 17.7722 15.4208C17.2805 15.1623 16.7697 14.9359 16.2426 14.7441Z" 
-                  fill="currentColor" 
-                  fillOpacity={0.25} 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-
-          </div>
+          <Controls
+            isMicrophoneEnabled={isMicrophoneEnabled}
+            toggleMicrophone={toggleMicrophone}
+            isCameraEnabled={isCameraEnabled}
+            toggleCamera={toggleCamera}
+            isScreenShareEnabled={isScreenShareEnabled}
+            toggleScreenShare={toggleScreenShare}
+            showWhiteboard={showWhiteboard}
+            toggleWhiteboard={toggleWhiteboard}
+            isTeacher={isTeacher}
+            isExporting={isExporting}
+            handleEndClass={handleEndClass}
+            onLeave={onLeave}
+            exportedPdfUrl={exportedPdfUrl}
+          />
 
         </div>
 
       </div>
 
-      {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
-      {showSplitLayout && (
-        <aside className="w-80 border-l border-border/30 bg-[#090d1a]/85 backdrop-blur-xl flex flex-col h-full z-20">
-          <div className="h-16 px-5 border-b border-border/30 flex justify-between items-center bg-surface/30 select-none">
-            <h3 className="font-semibold text-sm text-white/90">
-              {showWhiteboard ? 'Meeting View' : 'Participants'}
-            </h3>
-            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-semibold">
-              {cameraTracks.length} active
-            </span>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {cameraTracks.map(trackRef => (
-              <div 
-                key={trackRef.participant.sid} 
-                className="aspect-video relative rounded-xl overflow-hidden border border-white/5 bg-surface-light/10 shadow-md group"
-              >
-                <ParticipantTile trackRef={trackRef} className="w-full h-full" />
-              </div>
-            ))}
-          </div>
-        </aside>
+      {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active and NOT in Focus Mode) */}
+      {showSplitLayout && !isFocusMode && (
+        <StudentSidebar
+          showWhiteboard={showWhiteboard}
+          maxSidebarPage={maxSidebarPage}
+          sidebarPage={sidebarPage}
+          handlePrevSidebarPage={handlePrevSidebarPage}
+          handleNextSidebarPage={handleNextSidebarPage}
+          teacherTrack={teacherTrack}
+          pageSidebarStudents={pageSidebarStudents}
+        />
       )}
 
     </div>
