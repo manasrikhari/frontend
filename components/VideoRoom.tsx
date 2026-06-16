@@ -325,7 +325,9 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
   // Synchronize orderedRemoteStudents queue when participants join/leave or change camera states
   useEffect(() => {
     setOrderedRemoteStudents(prev => {
-      const filtered = prev.filter(p => remoteStudents.some(r => r.participant.sid === p.participant.sid));
+      const filtered = prev
+        .map(p => remoteStudents.find(r => r.participant.sid === p.participant.sid))
+        .filter((t): t is NonNullable<typeof t> => !!t);
       const added = remoteStudents.filter(r => !filtered.some(f => f.participant.sid === r.participant.sid));
       const nextQueue = [...filtered, ...added];
       
@@ -563,7 +565,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
       {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
-        {/* <Header
+        <Header
           roomName={roomName}
           isFocusMode={isFocusMode}
           setIsFocusMode={setIsFocusMode}
@@ -571,7 +573,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
           isCopied={isCopied}
           handleCopyLink={handleCopyLink}
           exportedPdfUrl={exportedPdfUrl}
-        /> */}
+        />
 
         {/* Content Viewport */}
         <div className="flex-1 overflow-hidden relative bg-[#060b18] pb-24">
