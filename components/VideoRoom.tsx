@@ -29,6 +29,11 @@ interface VideoRoomProps {
   onDisconnected?: () => void;
   sessionToken?: string;
   studentToken?: string;
+  audioDeviceId?: string;
+  videoDeviceId?: string;
+  onConnected?: () => void;
+  audioEnabled?: boolean;
+  videoEnabled?: boolean;
 }
 
 interface RoomContentProps {
@@ -36,13 +41,20 @@ interface RoomContentProps {
   userName?: string;
   onLeave: () => void;
   studentToken?: string;
+  onConnected?: () => void;
 }
 
-function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentProps) {
+function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }: RoomContentProps) {
   const room = useRoomContext();
   const connectionState = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const isTeacher = localParticipant?.metadata === 'teacher';
+
+  useEffect(() => {
+    if (connectionState === 'connected') {
+      onConnected?.();
+    }
+  }, [connectionState, onConnected]);
 
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -648,7 +660,21 @@ function RoomContent({ roomName, userName, onLeave, studentToken }: RoomContentP
   );
 }
 
-export default function VideoRoom({ token, roomName, serverUrl, userName, iceServers, onDisconnected, sessionToken, studentToken }: VideoRoomProps) {
+export default function VideoRoom({
+  token,
+  roomName,
+  serverUrl,
+  userName,
+  iceServers,
+  onDisconnected,
+  sessionToken,
+  studentToken,
+  audioDeviceId,
+  videoDeviceId,
+  onConnected,
+  audioEnabled = true,
+  videoEnabled = true,
+}: VideoRoomProps) {
   // Create stable Room instance to prevent reconnection loops in React strict mode
   const room = useMemo(() => {
     const roomOptions: RoomOptions = {
@@ -656,10 +682,14 @@ export default function VideoRoom({ token, roomName, serverUrl, userName, iceSer
       dynacast: true,
       videoCaptureDefaults: {
         resolution: { width: 640, height: 480, frameRate: 24 },
+        deviceId: videoDeviceId || undefined,
+      },
+      audioCaptureDefaults: {
+        deviceId: audioDeviceId || undefined,
       },
     };
     return new Room(roomOptions);
-  }, []);
+  }, [audioDeviceId, videoDeviceId]);
 
   // Build connect options with TURN/STUN servers for cross-network calls
   const connectOptions: RoomConnectOptions = useMemo(() => {
@@ -694,8 +724,8 @@ export default function VideoRoom({ token, roomName, serverUrl, userName, iceSer
       serverUrl={serverUrl}
       connectOptions={connectOptions}
       connect={true}
-      video={true}
-      audio={true}
+      video={videoEnabled}
+      audio={audioEnabled}
       onDisconnected={onDisconnected}
     >
       <RoomContent 
@@ -703,6 +733,7 @@ export default function VideoRoom({ token, roomName, serverUrl, userName, iceSer
         userName={userName} 
         onLeave={handleLeave} 
         studentToken={studentToken} 
+        onConnected={onConnected}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>

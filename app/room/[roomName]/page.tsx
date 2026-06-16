@@ -1,8 +1,10 @@
 'use client';
+
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { getToken, getTurnCredentials, IceServer } from '@/lib/api';
+import { getToken, getTurnCredentials, IceServer, decodeJwt } from '@/lib/api';
 import VideoRoom from '@/components/VideoRoom';
+import PreJoinScreen from '@/components/classroom/PreJoinScreen';
 
 export default function RoomPage() {
   const params = useParams();
@@ -12,7 +14,11 @@ export default function RoomPage() {
   // Extract session tokens from URL search params
   const sessionToken = searchParams.get('sessionToken') || '';
   const studentToken = searchParams.get('studentToken') || '';
-  
+
+  // Track teacher and class details
+  const [teacherName, setTeacherName] = useState('');
+  const [className, setClassName] = useState('');
+
   // Track the participant name and whether they have submitted the join form
   const [name, setName] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -20,9 +26,29 @@ export default function RoomPage() {
     }
     return '';
   });
+
   const [hasJoined, setHasJoined] = useState(() => {
     if (typeof window !== 'undefined') {
       return !!searchParams.get('name');
+    }
+    return false;
+  });
+
+  // Track active device selection, toggles, and loading states
+  const [audioDeviceId, setAudioDeviceId] = useState('');
+  const [videoDeviceId, setVideoDeviceId] = useState('');
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Determine if the room should be fully visible
+  const [isFullyConnected, setIsFullyConnected] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const nameInUrl = searchParams.get('name');
+      const tokenInUrl = searchParams.get('sessionToken') || '';
+      const decoded = decodeJwt(tokenInUrl);
+      // If teacher is returning directly with a name, bypass the pre-join screen
+      return !!nameInUrl && decoded?.role === 'teacher';
     }
     return false;
   });
@@ -32,6 +58,17 @@ export default function RoomPage() {
   const [iceServers, setIceServers] = useState<IceServer[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fetchedRef = useRef(false);
+
+  // Decode JWT on load to extract teacher name
+  useEffect(() => {
+    if (sessionToken) {
+      const decoded = decodeJwt(sessionToken);
+      if (decoded) {
+        if (decoded.teacherName) setTeacherName(decoded.teacherName);
+        if (decoded.roomName) setClassName(decoded.roomName);
+      }
+    }
+  }, [sessionToken]);
 
   // Fetch token, LiveKit server URL, and TURN credentials when hasJoined is true
   useEffect(() => {
@@ -60,15 +97,18 @@ export default function RoomPage() {
     window.location.href = '/';
   }, []);
 
-  const handleJoinFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    
+  const handleJoin = (audioId: string, videoId: string, audioOn: boolean, videoOn: boolean) => {
+    setAudioDeviceId(audioId);
+    setVideoDeviceId(videoId);
+    setAudioEnabled(audioOn);
+    setVideoEnabled(videoOn);
+    setIsConnecting(true);
+
     // Update URL query parameters so sharing/refresh works
     const url = new URL(window.location.href);
     url.searchParams.set('name', name.trim());
     window.history.replaceState(null, '', url.pathname + url.search);
-    
+
     setHasJoined(true);
   };
 
@@ -97,65 +137,6 @@ export default function RoomPage() {
     );
   }
 
-  // If the user hasn't submitted a name, show a beautiful name prompt UI
-  if (!hasJoined) {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4 relative bg-[#030712] overflow-hidden">
-        {/* Animated ambient blob */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
-        </div>
-
-        <div className="relative w-full max-w-md">
-          <div className="bg-surface/80 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-8 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/15 mb-2">
-                <svg className="w-7 h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight">You're invited!</h1>
-              <p className="text-sm text-foreground/50">
-                You've been invited to join the room <span className="text-primary font-medium">{roomName}</span>. Enter your name below to connect.
-              </p>
-            </div>
-
-            <form onSubmit={handleJoinFormSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="invite-name-input" className="text-xs font-medium text-foreground/60 uppercase tracking-wider">
-                  Your Display Name
-                </label>
-                <input
-                  id="invite-name-input"
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 rounded-xl bg-surface-light/60 border border-border/40 text-foreground placeholder-foreground/30 outline-none focus:border-primary focus:ring-2 focus:ring-primary-glow transition-all duration-200"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="off"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={!name.trim()}
-                className="w-full py-3.5 bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary/20 hover:shadow-primary/40 cursor-pointer"
-              >
-                Join Video Room
-              </button>
-            </form>
-
-            <p className="text-center text-xs text-foreground/30">
-              Your teacher is waiting in this room
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#030712]">
@@ -171,8 +152,14 @@ export default function RoomPage() {
             Make sure the backend server and tunneling ports are set up correctly.
           </p>
           <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-[#6366F1] hover:bg-[#4f46e5] rounded-lg text-sm transition-colors cursor-pointer text-white w-full font-semibold"
+          >
+            Retry Connection
+          </button>
+          <button
             onClick={() => window.location.href = '/'}
-            className="px-6 py-2 bg-surface-light border border-border/40 rounded-lg text-sm hover:bg-border/30 transition-colors cursor-pointer text-white"
+            className="px-6 py-2 bg-surface-light border border-border/40 rounded-lg text-sm hover:bg-border/30 transition-colors cursor-pointer text-white w-full"
           >
             Back to Home
           </button>
@@ -181,33 +168,72 @@ export default function RoomPage() {
     );
   }
 
-  if (!token || !serverUrl || !iceServers) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#030712] text-white">
-        <div className="flex flex-col items-center gap-4">
-          <svg className="w-10 h-10 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <div className="text-center">
-            <p className="text-lg font-medium">Joining {roomName}...</p>
-            <p className="text-sm text-foreground/40 mt-1">Connecting as {name}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const showRoom = token && serverUrl && iceServers;
 
   return (
-    <VideoRoom
-      token={token}
-      roomName={roomName}
-      serverUrl={serverUrl}
-      userName={name}
-      iceServers={iceServers}
-      onDisconnected={handleDisconnected}
-      sessionToken={sessionToken}
-      studentToken={studentToken}
-    />
+    <div className="relative w-screen h-screen">
+      {/* LiveKit Video Room rendered in the background */}
+      {showRoom && (
+        <VideoRoom
+          token={token}
+          roomName={roomName}
+          serverUrl={serverUrl}
+          userName={name}
+          iceServers={iceServers}
+          onDisconnected={handleDisconnected}
+          sessionToken={sessionToken}
+          studentToken={studentToken}
+          audioDeviceId={audioDeviceId}
+          videoDeviceId={videoDeviceId}
+          audioEnabled={audioEnabled}
+          videoEnabled={videoEnabled}
+          onConnected={() => setIsFullyConnected(true)}
+        />
+      )}
+
+      {/* Show PreJoinScreen as interactive overlay only if the user hasn't clicked join */}
+      {!hasJoined && (
+        <div className="absolute inset-0 z-[1000]">
+          <PreJoinScreen
+            roomName={roomName}
+            teacherName={teacherName}
+            userName={name}
+            setUserName={setName}
+            onJoin={handleJoin}
+          />
+        </div>
+      )}
+
+      {/* Show full screen loading transition with centeed loader once student clicked "Join class" */}
+      {hasJoined && !isFullyConnected && (
+        <div className="absolute inset-0 z-[1000] bg-[#030712] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+          {/* Ambient background glow */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#6366F1]/10 blur-[130px] animate-pulse" />
+          </div>
+
+          <div className="text-center space-y-8 z-10">
+            <div className="space-y-3">
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#E2E8F0] leading-relaxed max-w-xl mx-auto">
+                Connecting you to{' '}
+                <span className="text-[#6366F1]">{teacherName || 'Teacher'}</span>
+                's{' '}
+                <span className="text-indigo-400">{className ? className.toUpperCase() : roomName.toUpperCase()}</span>
+              </h1>
+              <p className="text-sm text-foreground/40 font-medium tracking-wide">
+                Please wait while we establish your secure video connection...
+              </p>
+            </div>
+
+            {/* Glowing circular loader below */}
+            <div className="relative w-16 h-16 mx-auto">
+              <div className="absolute inset-0 rounded-full border-4 border-white/5" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+              <div className="absolute inset-0 rounded-full bg-[#6366F1]/10 blur-md animate-pulse pointer-events-none" />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
