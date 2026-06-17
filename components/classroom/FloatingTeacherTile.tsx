@@ -26,7 +26,7 @@ export default function FloatingTeacherTile({
         const tileWidth = tile ? tile.offsetWidth : 256;
         const tileHeight = tile ? tile.offsetHeight : 144;
         setPosition({
-          x: window.innerWidth - tileWidth - 24,
+          x: 24,
           y: window.innerHeight - tileHeight - 190,
         });
       }, 50);

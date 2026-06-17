@@ -8,6 +8,7 @@ import {
   useLocalParticipant,
   useConnectionState,
   useRoomContext,
+  useParticipants,
 } from '@livekit/components-react';
 import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
@@ -19,6 +20,18 @@ import Controls from './classroom/Controls';
 import FloatingTeacherTile from './classroom/FloatingTeacherTile';
 import StudentSidebar from './classroom/StudentSidebar';
 import GridView from './classroom/GridView';
+import ChatPanel from './classroom/ChatPanel';
+
+export interface ChatMessage {
+  id: string;
+  senderSid: string;
+  senderName: string;
+  senderIdentity: string;
+  text: string;
+  timestamp: number;
+  recipientIdentity?: string;
+  recipientName?: string;
+}
 
 interface VideoRoomProps {
   token: string;
@@ -66,9 +79,57 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
   const [isExporting, setIsExporting] = useState(false);
   const [exportedPdfUrl, setExportedPdfUrl] = useState<string | null>(null);
 
+  // Chat & Participants states
+  const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
+  const participants = useParticipants();
+
+  // Auto-close chat/participants panel when entering focus mode
+  useEffect(() => {
+    if (isFocusMode) {
+      setActiveRightPanelTab(null);
+    }
+  }, [isFocusMode]);
+
   const handleEditorMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
   }, []);
+
+  const sendMessage = useCallback(async (text: string, targetIdentity?: string, targetName?: string) => {
+    if (!localParticipant) return;
+    try {
+      const messageId = crypto.randomUUID();
+      const msgObj: ChatMessage = {
+        id: messageId,
+        senderSid: localParticipant.sid,
+        senderName: userName || localParticipant.name || localParticipant.identity,
+        senderIdentity: localParticipant.identity,
+        text,
+        timestamp: Date.now(),
+        recipientIdentity: targetIdentity,
+        recipientName: targetName,
+      };
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({
+        type: 'CHAT_MESSAGE',
+        ...msgObj,
+      }));
+
+      const publishOptions: any = { reliable: true };
+      if (targetIdentity) {
+        publishOptions.destinationIdentities = [targetIdentity];
+      }
+
+      await localParticipant.publishData(data, publishOptions);
+
+      // Add locally since LiveKit doesn't loop back published messages to the sender
+      setMessages((prev) => [...prev, msgObj]);
+    } catch (err) {
+      console.error('Failed to send chat message:', err);
+    }
+  }, [localParticipant, userName]);
 
   const handleEndClass = async () => {
     if (!editor) {
@@ -263,7 +324,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
     }
   }, [showWhiteboard, isTeacher, localParticipant]);
 
-  // Listen for whiteboard state broadcasts and note exports
+  // Listen for whiteboard state broadcasts, note exports, and chat messages
   useEffect(() => {
     if (!room) return;
     const handleDataReceived = (payload: Uint8Array, participant: any) => {
@@ -283,6 +344,8 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
         } else if (msg.type === 'NOTES_EXPORTED') {
           const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
           setExportedPdfUrl(`${SYNC_WORKER_URL}/api/pdf/${roomName}`);
+        } else if (msg.type === 'CHAT_MESSAGE') {
+          setMessages((prev) => [...prev, msg]);
         }
       } catch (err) {
         console.error('Failed to parse data channel message:', err);
@@ -578,17 +641,15 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         
         <Header
-          roomName={roomName}
           isFocusMode={isFocusMode}
           setIsFocusMode={setIsFocusMode}
           showSplitLayout={showSplitLayout}
           isCopied={isCopied}
           handleCopyLink={handleCopyLink}
-          exportedPdfUrl={exportedPdfUrl}
         />
 
         {/* Content Viewport */}
-        <div className="flex-1 overflow-hidden relative bg-[#060b18] pb-24">
+        <div className="flex-1 overflow-hidden relative bg-[#060b18]">
           
           <FloatingTeacherTile
             teacherTrack={teacherTrack}
@@ -623,23 +684,27 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
             />
           )}
 
-          <Controls
-            isMicrophoneEnabled={isMicrophoneEnabled}
-            toggleMicrophone={toggleMicrophone}
-            isCameraEnabled={isCameraEnabled}
-            toggleCamera={toggleCamera}
-            isScreenShareEnabled={isScreenShareEnabled}
-            toggleScreenShare={toggleScreenShare}
-            showWhiteboard={showWhiteboard}
-            toggleWhiteboard={toggleWhiteboard}
-            isTeacher={isTeacher}
-            isExporting={isExporting}
-            handleEndClass={handleEndClass}
-            onLeave={onLeave}
-            exportedPdfUrl={exportedPdfUrl}
-          />
-
         </div>
+
+        {/* Full-width Google Meet Style Footer */}
+        <Controls
+          roomName={roomName}
+          isMicrophoneEnabled={isMicrophoneEnabled}
+          toggleMicrophone={toggleMicrophone}
+          isCameraEnabled={isCameraEnabled}
+          toggleCamera={toggleCamera}
+          isScreenShareEnabled={isScreenShareEnabled}
+          toggleScreenShare={toggleScreenShare}
+          showWhiteboard={showWhiteboard}
+          toggleWhiteboard={toggleWhiteboard}
+          isTeacher={isTeacher}
+          isExporting={isExporting}
+          handleEndClass={handleEndClass}
+          onLeave={onLeave}
+          exportedPdfUrl={exportedPdfUrl}
+          activeRightPanelTab={activeRightPanelTab}
+          setActiveRightPanelTab={setActiveRightPanelTab}
+        />
 
       </div>
 
@@ -653,6 +718,20 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
           handleNextSidebarPage={handleNextSidebarPage}
           teacherTrack={teacherTrack}
           pageSidebarStudents={pageSidebarStudents}
+        />
+      )}
+
+      {/* RIGHT PANE: Chat & Participants Panel */}
+      {activeRightPanelTab && localParticipant && (
+        <ChatPanel
+          activeTab={activeRightPanelTab}
+          setActiveTab={setActiveRightPanelTab}
+          messages={messages}
+          onSendMessage={sendMessage}
+          participants={participants}
+          localParticipant={localParticipant}
+          activeChatTarget={activeChatTarget}
+          setActiveChatTarget={setActiveChatTarget}
         />
       )}
 
