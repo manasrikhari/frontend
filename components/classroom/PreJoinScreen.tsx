@@ -6,7 +6,6 @@ interface PreJoinScreenProps {
   roomName: string;
   teacherName: string;
   userName: string;
-  setUserName: (name: string) => void;
   onJoin: (audioDeviceId: string, videoDeviceId: string, audioEnabled: boolean, videoEnabled: boolean) => void;
 }
 
@@ -14,7 +13,6 @@ export default function PreJoinScreen({
   roomName,
   teacherName,
   userName,
-  setUserName,
   onJoin,
 }: PreJoinScreenProps) {
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -40,7 +38,6 @@ export default function PreJoinScreen({
   const previewStreamRef = useRef<MediaStream | null>(null);
   const settingsCardRef = useRef<HTMLDivElement>(null);
 
-  // Sync state values to refs so the preview stream callback doesn't depend on toggle changes
   const isCamEnabledRef = useRef(isCamEnabled);
   const isMicEnabledRef = useRef(isMicEnabled);
 
@@ -59,8 +56,6 @@ export default function PreJoinScreen({
         previewStreamRef.current = null;
       }
 
-      // Always request both video and audio input initially if hardware is available
-      // Toggling the enabled/disabled states will be managed dynamically via track.enabled
       const constraints: MediaStreamConstraints = {
         video: vId ? { deviceId: { exact: vId } } : true,
         audio: aId ? { deviceId: { exact: aId } } : true,
@@ -70,7 +65,6 @@ export default function PreJoinScreen({
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err) {
-        // Fallbacks for setups with missing microphone or camera
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (errVideo) {
@@ -84,7 +78,6 @@ export default function PreJoinScreen({
 
       previewStreamRef.current = stream;
 
-      // Apply initial toggled states
       stream.getVideoTracks().forEach(t => t.enabled = isCamEnabledRef.current);
       stream.getAudioTracks().forEach(t => t.enabled = isMicEnabledRef.current);
       
@@ -109,7 +102,7 @@ export default function PreJoinScreen({
       console.error('Error starting preview stream:', err);
       setErrorMsg(err.message || 'Permission denied or no devices found.');
     }
-  }, []); // Stable callback with no dependencies to prevent re-creation
+  }, []);
 
   const enumerateDevices = useCallback(async () => {
     try {
@@ -123,7 +116,6 @@ export default function PreJoinScreen({
     }
   }, []);
 
-  // Initial setup on mount
   useEffect(() => {
     let active = true;
     async function init() {
@@ -144,7 +136,6 @@ export default function PreJoinScreen({
     };
   }, [startPreviewStream, enumerateDevices]);
 
-  // Update preview stream when selected device changes (dropdown selection)
   const isFirstRun = useRef(true);
   useEffect(() => {
     if (isFirstRun.current) {
@@ -154,7 +145,6 @@ export default function PreJoinScreen({
     startPreviewStream(selectedVideoId, selectedAudioId);
   }, [selectedVideoId, selectedAudioId, startPreviewStream]);
 
-  // Handle toggling microphone track enabled state dynamically (mutes/unmutes stream)
   useEffect(() => {
     if (previewStreamRef.current) {
       previewStreamRef.current.getAudioTracks().forEach(track => {
@@ -163,7 +153,6 @@ export default function PreJoinScreen({
     }
   }, [isMicEnabled]);
 
-  // Handle toggling camera track enabled state dynamically (enables/disables camera transmission)
   useEffect(() => {
     if (previewStreamRef.current) {
       previewStreamRef.current.getVideoTracks().forEach(track => {
@@ -186,10 +175,7 @@ export default function PreJoinScreen({
     };
   }, [showDeviceSettings]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userName.trim()) return;
-
+  const handleJoinClick = () => {
     if (previewStreamRef.current) {
       previewStreamRef.current.getTracks().forEach((t) => t.stop());
       previewStreamRef.current = null;
@@ -197,7 +183,6 @@ export default function PreJoinScreen({
 
     onJoin(selectedAudioId, selectedVideoId, isMicEnabled, isCamEnabled);
   };
-
 
   const displayTeacherName = teacherName || 'Teacher';
 
@@ -217,9 +202,9 @@ export default function PreJoinScreen({
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-12 p-8 lg:p-12 z-10 min-h-0">
-        {/* Left Side: Preview & Device Setup */}
-        <div className="flex-1 w-full flex flex-col items-center justify-center space-y-6 text-center min-h-0">
+      <main className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center justify-center gap-8 p-8 lg:p-12 z-10 min-h-0">
+        {/* Preview & Device Setup */}
+        <div className="w-full flex flex-col items-center justify-center space-y-6 text-center min-h-0">
           <div className="space-y-2">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#E2E8F0] mx-auto">
               Connecting you to{" "}
@@ -232,10 +217,12 @@ export default function PreJoinScreen({
               </span>{" "}
               session
             </h1>
-            {/* I removed the check your mic and camera settins <p> */}
+            <p className="text-sm text-foreground/50">
+              Welcome, <span className="font-semibold text-white">{userName}</span>. Set up your devices before joining the class.
+            </p>
           </div>
 
-          {/* Self video feed box - ENLARGED to max-w-xl (tablet) / max-w-2xl (desktop) */}
+          {/* Self video feed box */}
           <div className="w-full max-w-xl md:max-w-2xl aspect-video rounded-2xl border border-white/10 bg-[#202124] shadow-2xl relative flex items-center justify-center overflow-hidden group">
             {!isCamEnabled ? (
               <div className="flex flex-col items-center justify-center text-foreground/20 space-y-3 p-6 select-none">
@@ -292,27 +279,9 @@ export default function PreJoinScreen({
                 className="w-full h-full object-cover transform -scale-x-100"
               />
             )}
-
-            {/* Hardware Status Overlay indicators */}
-            {/* <div className="absolute bottom-4 left-4 flex items-center gap-2">
-              <div className={`p-2 rounded-lg backdrop-blur-md border ${
-                isMicEnabled && hasMicPermission ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
-              }`}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-                </svg>
-              </div>
-              <div className={`p-2 rounded-lg backdrop-blur-md border ${
-                isCamEnabled && hasCamPermission ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
-              }`}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-                </svg>
-              </div>
-            </div> */}
           </div>
 
-          {/* Floating Controls Bar under the self video feed (Mic, Camera, Settings) */}
+          {/* Floating Controls Bar under the self video feed */}
           <div
             className="flex items-center gap-3 relative z-30"
             ref={settingsCardRef}
@@ -431,7 +400,7 @@ export default function PreJoinScreen({
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
+                  d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992V12Z"
                 />
                 <path
                   strokeLinecap="round"
@@ -461,12 +430,7 @@ export default function PreJoinScreen({
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992V12Z"
                       />
                     </svg>
                     Device Settings
@@ -573,40 +537,15 @@ export default function PreJoinScreen({
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right Side: Name Input & Action Card */}
-        <div className="w-full max-w-sm shrink-0">
-          <div className="bg-surface/40 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl p-8 space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2 text-left">
-                <label
-                  htmlFor="join-name-input"
-                  className="text-xs font-semibold uppercase tracking-wider text-foreground/50 select-none"
-                >
-                  Your name
-                </label>
-                <input
-                  id="join-name-input"
-                  type="text"
-                  required
-                  className="w-full px-4 py-3.5 rounded-xl bg-surface-light/60 border border-border/40 text-foreground placeholder-foreground/30 outline-none focus:border-primary focus:ring-2 focus:ring-primary-glow transition-all duration-200 text-sm"
-                  placeholder="Enter your name"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  autoComplete="off"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={!userName.trim()}
-                className="w-full py-4 bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary/20 hover:shadow-primary/40 cursor-pointer flex items-center justify-center gap-2 text-sm"
-              >
-                <span>Join class</span>
-              </button>
-            </form>
+          {/* Join class button right in the center */}
+          <div className="w-full max-w-md pt-4 z-20">
+            <button
+              onClick={handleJoinClick}
+              className="w-full py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-primary/20 hover:shadow-primary/40 cursor-pointer flex items-center justify-center gap-2 text-sm"
+            >
+              <span>Join class</span>
+            </button>
           </div>
         </div>
       </main>

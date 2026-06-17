@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "../components/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Video Call — LiveKit Prototype",
+  title: "OpenGrapes Live — Classroom",
   description: "Real-time video calling with collaborative whiteboard powered by LiveKit and Tldraw",
 };
 
@@ -27,7 +28,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full bg-background text-foreground">{children}</body>
+      <body className="h-full bg-background text-foreground">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

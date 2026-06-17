@@ -1,8 +1,8 @@
-export async function getToken(roomName: string, participantName: string, sessionToken: string): Promise<string> {
+export async function getToken(roomName: string, sessionToken: string): Promise<string> {
   const response = await fetch('/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roomName, participantName, sessionToken }),
+    body: JSON.stringify({ roomName, sessionToken }),
   });
 
   if (!response.ok) {

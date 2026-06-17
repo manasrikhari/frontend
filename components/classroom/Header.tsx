@@ -7,16 +7,12 @@ interface HeaderProps {
   isFocusMode: boolean;
   setIsFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
   showSplitLayout: boolean;
-  isCopied: boolean;
-  handleCopyLink: () => void;
 }
 
 export default function Header({
   isFocusMode,
   setIsFocusMode,
   showSplitLayout,
-  isCopied,
-  handleCopyLink,
 }: HeaderProps) {
   return (
     <header className="py-3 px-6 border-b border-border/30 flex justify-between items-center bg-[#090d1a]/85 backdrop-blur-md z-30 select-none">
@@ -73,26 +69,6 @@ export default function Header({
             </button>
           </Tooltip>
         )}
-
-        <button
-          onClick={handleCopyLink}
-          className="px-3 py-1.5 bg-surface-light/50 border border-border/40 hover:bg-border/30 rounded-xl text-xs text-white font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3"
-            />
-          </svg>
-          {isCopied ? "Copied!" : "Copy Link"}
-        </button>
       </div>
     </header>
   );

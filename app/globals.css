@@ -172,3 +172,27 @@ body {
   border-radius: 6px !important;
   padding: 2px !important;
 }
+
+/* Tldraw canvas background contrast */
+.tl-container {
+  --tl-color-background: #f1f5f9 !important; /* Contrasting off-white canvas desk background */
+}
+
+.tl-theme__dark {
+  --tl-color-background: #090d16 !important; /* Contrasting dark mode canvas background */
+}
+
+/* Style the page frames to look like actual white sheets of paper */
+.tl-frame {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  border-radius: 4px !important;
+}
+
+.tl-theme__dark .tl-frame {
+  background-color: #1e293b !important; /* Dark mode "paper" sheet background */
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+

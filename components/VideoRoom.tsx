@@ -13,7 +13,10 @@ import {
 import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import WhiteboardWrapper from './WhiteboardWrapper';
+import { decodeJwt } from '@/lib/api';
 import type { IceServer } from '@/lib/api';
+import { Plus, Upload, GripVertical } from 'lucide-react';
+import { addHandDrawnPage, importPdf, importImage, getPagesSorted } from './classroom/whiteboard-helpers';
 
 import Header from './classroom/Header';
 import Controls from './classroom/Controls';
@@ -41,7 +44,6 @@ interface VideoRoomProps {
   iceServers?: IceServer[];
   onDisconnected?: () => void;
   sessionToken?: string;
-  studentToken?: string;
   audioDeviceId?: string;
   videoDeviceId?: string;
   onConnected?: () => void;
@@ -53,11 +55,11 @@ interface RoomContentProps {
   roomName: string;
   userName?: string;
   onLeave: () => void;
-  studentToken?: string;
   onConnected?: () => void;
+  sessionToken?: string;
 }
 
-function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }: RoomContentProps) {
+function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }: RoomContentProps) {
   const room = useRoomContext();
   const connectionState = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
@@ -74,16 +76,173 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
   const [studentGridPage, setStudentGridPage] = useState(0);
   const [sidebarPage, setSidebarPage] = useState(0);
   const [lastActiveStudentSid, setLastActiveStudentSid] = useState<string | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
   const [editor, setEditor] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
+  const [pdfImportProgress, setPdfImportProgress] = useState({ current: 0, total: 0 });
   const [exportedPdfUrl, setExportedPdfUrl] = useState<string | null>(null);
+  const [isWhiteboardEmpty, setIsWhiteboardEmpty] = useState(true);
+
+  // Floating pages panel dragging states & handlers
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const startOffsetRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      setDragOffset({
+        x: startOffsetRef.current.x + dx,
+        y: startOffsetRef.current.y + dy,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('label') || target.closest('input')) {
+      return;
+    }
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    startOffsetRef.current = dragOffset;
+    e.preventDefault();
+  };
+
+  const [showEndCallModal, setShowEndCallModal] = useState(false);
+
+  const batchId = useMemo(() => {
+    if (!sessionToken) return null;
+    const decoded = decodeJwt(sessionToken);
+    return decoded?.batchId || null;
+  }, [sessionToken]);
 
   // Chat & Participants states
   const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
+  const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(false);
+  const [globalScreenShareAllowed, setGlobalScreenShareAllowed] = useState(false);
+  const [allowedWhiteboardStudents, setAllowedWhiteboardStudents] = useState<Record<string, boolean>>({});
+  const [allowedScreenShareStudents, setAllowedScreenShareStudents] = useState<Record<string, boolean>>({});
   const participants = useParticipants();
+
+  // Auto-disconnect student if teacher is not present in the room
+  const hasTeacher = useMemo(() => {
+    return participants.some(p => p.metadata === 'teacher');
+  }, [participants]);
+
+  useEffect(() => {
+    if (isTeacher || connectionState !== 'connected') return;
+
+    if (!hasTeacher) {
+      const timer = setTimeout(() => {
+        alert("The teacher is not in the meeting. You will be redirected to the dashboard.");
+        onLeave();
+      }, 7000); // 7 seconds grace period to allow for transient refreshes or load times
+      return () => clearTimeout(timer);
+    }
+  }, [isTeacher, hasTeacher, connectionState, onLeave]);
+
+  const isWhiteboardAllowed = useMemo(() => {
+    if (isTeacher) return true;
+    if (globalWhiteboardAllowed) return true;
+    if (!localParticipant) return false;
+    return !!allowedWhiteboardStudents[localParticipant.identity];
+  }, [isTeacher, globalWhiteboardAllowed, localParticipant, allowedWhiteboardStudents]);
+
+  const isScreenShareAllowed = useMemo(() => {
+    if (isTeacher) return true;
+    if (globalScreenShareAllowed) return true;
+    if (!localParticipant) return false;
+    return !!allowedScreenShareStudents[localParticipant.identity];
+  }, [isTeacher, globalScreenShareAllowed, localParticipant, allowedScreenShareStudents]);
+
+  const handleToggleGlobalPermission = useCallback(async (type: 'whiteboard' | 'screenshare') => {
+    if (!isTeacher || !localParticipant) return;
+
+    let nextWhiteboard = globalWhiteboardAllowed;
+    let nextScreenShare = globalScreenShareAllowed;
+
+    if (type === 'whiteboard') {
+      nextWhiteboard = !globalWhiteboardAllowed;
+      setGlobalWhiteboardAllowed(nextWhiteboard);
+    } else {
+      nextScreenShare = !globalScreenShareAllowed;
+      setGlobalScreenShareAllowed(nextScreenShare);
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({
+        type: 'UPDATE_PERMISSIONS',
+        globalWhiteboardAllowed: nextWhiteboard,
+        globalScreenShareAllowed: nextScreenShare,
+        allowedWhiteboardStudents,
+        allowedScreenShareStudents,
+      }));
+      await localParticipant.publishData(data, { reliable: true });
+    } catch (err) {
+      console.error('Failed to broadcast global permissions update:', err);
+    }
+  }, [isTeacher, localParticipant, globalWhiteboardAllowed, globalScreenShareAllowed, allowedWhiteboardStudents, allowedScreenShareStudents]);
+
+  const handleToggleStudentPermission = useCallback(async (studentIdentity: string, type: 'whiteboard' | 'screenshare') => {
+    if (!isTeacher || !localParticipant) return;
+
+    let nextAllowedWhiteboard = { ...allowedWhiteboardStudents };
+    let nextAllowedScreenShare = { ...allowedScreenShareStudents };
+
+    if (type === 'whiteboard') {
+      nextAllowedWhiteboard[studentIdentity] = !allowedWhiteboardStudents[studentIdentity];
+      setAllowedWhiteboardStudents(nextAllowedWhiteboard);
+    } else {
+      nextAllowedScreenShare[studentIdentity] = !allowedScreenShareStudents[studentIdentity];
+      setAllowedScreenShareStudents(nextAllowedScreenShare);
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({
+        type: 'UPDATE_PERMISSIONS',
+        globalWhiteboardAllowed,
+        globalScreenShareAllowed,
+        allowedWhiteboardStudents: nextAllowedWhiteboard,
+        allowedScreenShareStudents: nextAllowedScreenShare,
+      }));
+      await localParticipant.publishData(data, { reliable: true });
+    } catch (err) {
+      console.error('Failed to broadcast student permission update:', err);
+    }
+  }, [isTeacher, localParticipant, globalWhiteboardAllowed, globalScreenShareAllowed, allowedWhiteboardStudents, allowedScreenShareStudents]);
+
+  const boundsCleanupRef = useRef<(() => void) | null>(null);
+
+  // Clean up bounds listener on unmount
+  useEffect(() => {
+    return () => {
+      if (boundsCleanupRef.current) {
+        boundsCleanupRef.current();
+      }
+    };
+  }, []);
 
   // Auto-close chat/participants panel when entering focus mode
   useEffect(() => {
@@ -94,6 +253,97 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
 
   const handleEditorMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
+
+    // Clean up previous listener if exists
+    if (boundsCleanupRef.current) {
+      boundsCleanupRef.current();
+    }
+
+    // Initialize state
+    const initialFrames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+    setIsWhiteboardEmpty(initialFrames.length === 0);
+
+    // Register listener to enforce frame boundaries and track empty state
+    const cleanup = editorInstance.store.listen((event: any) => {
+      // Always update empty state when store changes
+      const currentFrames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+      setIsWhiteboardEmpty(currentFrames.length === 0);
+
+      if (event.source !== 'user') return;
+
+      const frames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+
+      const isShapeInsideAnyFrame = (shape: any) => {
+        if (shape.type === 'frame') return true;
+
+        // Check if parent is a frame
+        if (shape.parentId && shape.parentId !== editorInstance.getCurrentPageId()) {
+          const parent = editorInstance.getShape(shape.parentId);
+          if (parent && parent.type === 'frame') return true;
+        }
+
+        // Check bounds
+        const shapeBounds = editorInstance.getShapePageBounds(shape.id);
+        if (!shapeBounds) return false;
+
+        const shapeCenter = {
+          x: shapeBounds.x + shapeBounds.w / 2,
+          y: shapeBounds.y + shapeBounds.h / 2,
+        };
+
+        // See if center is inside any frame
+        for (const frame of frames) {
+          const frameBounds = editorInstance.getShapePageBounds(frame.id);
+          if (!frameBounds) continue;
+
+          if (
+            shapeCenter.x >= frameBounds.x &&
+            shapeCenter.x <= frameBounds.x + frameBounds.w &&
+            shapeCenter.y >= frameBounds.y &&
+            shapeCenter.y <= frameBounds.y + frameBounds.h
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      // 1. Handle shapes added outside frames
+      if (event.changes.added) {
+        const shapesToDelete: string[] = [];
+        Object.values(event.changes.added).forEach((shape: any) => {
+          if (!isShapeInsideAnyFrame(shape)) {
+            shapesToDelete.push(shape.id);
+          }
+        });
+
+        if (shapesToDelete.length > 0) {
+          editorInstance.run(() => {
+            editorInstance.deleteShapes(shapesToDelete);
+          });
+        }
+      }
+
+      // 2. Handle shapes moved/resized outside frames
+      if (event.changes.updated) {
+        const shapesToDelete: string[] = [];
+        Object.keys(event.changes.updated).forEach((id) => {
+          const shape = editorInstance.getShape(id);
+          if (shape && !isShapeInsideAnyFrame(shape)) {
+            shapesToDelete.push(id);
+          }
+        });
+
+        if (shapesToDelete.length > 0) {
+          editorInstance.run(() => {
+            editorInstance.deleteShapes(shapesToDelete);
+          });
+        }
+      }
+    }, { scope: 'document' });
+
+    boundsCleanupRef.current = cleanup;
   }, []);
 
   const sendMessage = useCallback(async (text: string, targetIdentity?: string, targetName?: string) => {
@@ -131,122 +381,104 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
     }
   }, [localParticipant, userName]);
 
-  const handleEndClass = async () => {
-    if (!editor) {
-      alert('Whiteboard is not ready yet.');
-      return;
+  const handleEndClass = async (bypassConfirm = false) => {
+    if (!bypassConfirm) {
+      const confirmEnd = confirm('Are you sure you want to end the class for all users?');
+      if (!confirmEnd) return;
     }
-    
-    const confirmEnd = confirm('Are you sure you want to end the class and export the notes?');
-    if (!confirmEnd) return;
 
     setIsExporting(true);
+    let hasNotes = false;
     try {
-      const { jsPDF } = await import('jspdf');
-
-      // Get all pages
-      const pages = editor.getPages();
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      let addedPageCount = 0;
-      const originalPageId = editor.getCurrentPageId();
-
-      for (const page of pages) {
-        editor.setCurrentPage(page.id);
-        const shapeIds = Array.from(editor.getCurrentPageShapeIds());
-        if (shapeIds.length === 0) continue;
-
-        // Export shapeIds as JPEG blob with compression and explicit scale limit
-        const { blob, width, height } = await editor.toImage(shapeIds, {
-          format: 'jpeg',
-          background: true,
-          quality: 0.75,
-          scale: 1.5,
-        });
+      // 1. Export whiteboard notes if editor is initialized
+      if (editor) {
+        const sortedFrames = getPagesSorted(editor);
         
-        // Convert blob to DataURL
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
+        if (sortedFrames.length > 0) {
+          const { jsPDF } = await import('jspdf');
+          let pdf: any = null;
+          let addedPageCount = 0;
 
-        const pdfWidth = 297;
-        const pdfHeight = 210;
-        const imgRatio = width / height;
-        const pdfRatio = pdfWidth / pdfHeight;
+          for (const frame of sortedFrames) {
+            const bounds = editor.getShapePageBounds(frame.id);
+            if (!bounds) continue;
 
-        let printWidth = pdfWidth;
-        let printHeight = pdfHeight;
-        let x = 0;
-        let y = 0;
+            const childIds = editor.getSortedChildIdsForParent(frame.id);
 
-        if (imgRatio > pdfRatio) {
-          printHeight = pdfWidth / imgRatio;
-          y = (pdfHeight - printHeight) / 2;
-        } else {
-          printWidth = pdfHeight * imgRatio;
-          x = (pdfWidth - printWidth) / 2;
-        }
+            // Initialize or add page
+            if (addedPageCount === 0) {
+              pdf = new jsPDF({
+                orientation: bounds.width > bounds.height ? 'landscape' : 'portrait',
+                unit: 'pt',
+                format: [bounds.width, bounds.height],
+              });
+            } else {
+              pdf.addPage([bounds.width, bounds.height], bounds.width > bounds.height ? 'landscape' : 'portrait');
+            }
+            addedPageCount++;
 
-        if (addedPageCount > 0) {
-          pdf.addPage('a4', 'landscape');
-        }
-        pdf.addImage(dataUrl, 'JPEG', x, y, printWidth, printHeight, undefined, 'FAST');
-        addedPageCount++;
-      }
+            // If frame has child shapes, export them; otherwise leave page blank
+            if (childIds && childIds.length > 0) {
+              const { blob } = await editor.toImage(childIds, {
+                format: 'jpeg',
+                background: true,
+                quality: 0.75, // Compressed quality to respect the 3-4 MB size limit
+                scale: 1.5,    // Balanced scale for crisp text and smaller file size
+                bounds,
+              });
 
-      // Restore original page view
-      editor.setCurrentPage(originalPageId);
+              const reader = new FileReader();
+              const dataUrl = await new Promise<string>((resolve) => {
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
 
-      if (addedPageCount === 0) {
-        alert('Cannot export an empty whiteboard.');
-        setIsExporting(false);
-        return;
-      }
+              pdf.addImage(dataUrl, 'JPEG', 0, 0, bounds.width, bounds.height, undefined, 'FAST');
+            }
+          }
 
-      const pdfBlob = pdf.output('blob');
+          if (pdf && addedPageCount > 0) {
+            const pdfBlob = pdf.output('blob');
+            const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
+            const uploadUrl = `${SYNC_WORKER_URL}/api/pdf/${roomName}`;
 
-      // Upload to Worker R2 bucket
-      const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
-      const uploadUrl = `${SYNC_WORKER_URL}/api/pdf/${roomName}`;
+            await fetch(uploadUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/pdf' },
+              body: pdfBlob,
+            });
 
-      console.log('Uploading PDF to:', uploadUrl);
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/pdf' },
-        body: pdfBlob,
-      });
+            hasNotes = true;
 
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '');
-        throw new Error(`Upload failed with status ${res.status}: ${errorText}`);
-      }
-      
-      const downloadUrl = `${SYNC_WORKER_URL}/api/pdf/${roomName}`;
-      setExportedPdfUrl(downloadUrl);
-
-      // Broadcast notes exported notification to students
-      if (localParticipant) {
-        try {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(JSON.stringify({ type: 'NOTES_EXPORTED' }));
-          await localParticipant.publishData(data, { reliable: true });
-        } catch (broadcastErr) {
-          console.error('Failed to broadcast NOTES_EXPORTED:', broadcastErr);
+            if (localParticipant) {
+              const encoder = new TextEncoder();
+              const data = encoder.encode(JSON.stringify({ type: 'NOTES_EXPORTED' }));
+              await localParticipant.publishData(data, { reliable: true }).catch(() => {});
+            }
+          }
         }
       }
 
-      alert('Class ended! Whiteboard notes exported and uploaded successfully.');
+      // 2. Call backend to mark class as completed and terminate LiveKit room
+      const accessToken = sessionStorage.getItem('classroom_access_token');
+      if (batchId && accessToken) {
+        await fetch('/api/end-class', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({ batchId, hasNotes })
+        }).catch(err => console.error('Failed to notify backend of class end:', err));
+      }
+
+      alert('Class ended successfully for all participants.');
     } catch (err) {
-      console.error(err);
-      alert('Failed to end class and export PDF. R2 bucket might not be enabled or sync worker is offline.');
+      console.error('Error ending class:', err);
+      alert('Class ended, but whiteboard notes could not be exported.');
     } finally {
       setIsExporting(false);
+      onLeave();
     }
   };
 
@@ -266,14 +498,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
   // Whiteboard or Screen Share triggers the Split Layout (Main pane + right sidebar)
   const showSplitLayout = showWhiteboard || hasScreenShare;
 
-  const handleCopyLink = useCallback(() => {
-    // Generate the join URL using the window host and student session token
-    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(roomName)}?sessionToken=${encodeURIComponent(studentToken || '')}`;
-    navigator.clipboard.writeText(inviteUrl).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    });
-  }, [roomName, studentToken]);
+  // Invite links copy mechanism removed
 
   const toggleMicrophone = useCallback(async () => {
     if (localParticipant) {
@@ -316,13 +541,20 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
     if (isTeacher && localParticipant) {
       try {
         const encoder = new TextEncoder();
-        const data = encoder.encode(JSON.stringify({ type: 'SET_WHITEBOARD', active: nextState }));
+        const data = encoder.encode(JSON.stringify({
+          type: 'SET_WHITEBOARD',
+          active: nextState,
+          globalWhiteboardAllowed,
+          globalScreenShareAllowed,
+          allowedWhiteboardStudents,
+          allowedScreenShareStudents,
+        }));
         await localParticipant.publishData(data, { reliable: true });
       } catch (err) {
         console.error('Failed to broadcast whiteboard state:', err);
       }
     }
-  }, [showWhiteboard, isTeacher, localParticipant]);
+  }, [showWhiteboard, isTeacher, localParticipant, globalWhiteboardAllowed, globalScreenShareAllowed, allowedWhiteboardStudents, allowedScreenShareStudents]);
 
   // Listen for whiteboard state broadcasts, note exports, and chat messages
   useEffect(() => {
@@ -333,14 +565,30 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
         const msg = JSON.parse(decoder.decode(payload));
         if (msg.type === 'SET_WHITEBOARD') {
           setShowWhiteboard(msg.active);
+          if (msg.globalWhiteboardAllowed !== undefined) setGlobalWhiteboardAllowed(msg.globalWhiteboardAllowed);
+          if (msg.globalScreenShareAllowed !== undefined) setGlobalScreenShareAllowed(msg.globalScreenShareAllowed);
+          if (msg.allowedWhiteboardStudents !== undefined) setAllowedWhiteboardStudents(msg.allowedWhiteboardStudents);
+          if (msg.allowedScreenShareStudents !== undefined) setAllowedScreenShareStudents(msg.allowedScreenShareStudents);
         } else if (msg.type === 'QUERY_WHITEBOARD_STATE') {
           if (isTeacher && localParticipant) {
             const encoder = new TextEncoder();
-            const data = encoder.encode(JSON.stringify({ type: 'SET_WHITEBOARD', active: showWhiteboard }));
+            const data = encoder.encode(JSON.stringify({
+              type: 'SET_WHITEBOARD',
+              active: showWhiteboard,
+              globalWhiteboardAllowed,
+              globalScreenShareAllowed,
+              allowedWhiteboardStudents,
+              allowedScreenShareStudents,
+            }));
             localParticipant.publishData(data, { reliable: true }).catch(err => {
               console.error('Failed to reply to whiteboard query:', err);
             });
           }
+        } else if (msg.type === 'UPDATE_PERMISSIONS') {
+          if (msg.globalWhiteboardAllowed !== undefined) setGlobalWhiteboardAllowed(msg.globalWhiteboardAllowed);
+          if (msg.globalScreenShareAllowed !== undefined) setGlobalScreenShareAllowed(msg.globalScreenShareAllowed);
+          if (msg.allowedWhiteboardStudents !== undefined) setAllowedWhiteboardStudents(msg.allowedWhiteboardStudents);
+          if (msg.allowedScreenShareStudents !== undefined) setAllowedScreenShareStudents(msg.allowedScreenShareStudents);
         } else if (msg.type === 'NOTES_EXPORTED') {
           const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
           setExportedPdfUrl(`${SYNC_WORKER_URL}/api/pdf/${roomName}`);
@@ -355,7 +603,7 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
     return () => {
       room.off('dataReceived', handleDataReceived);
     };
-  }, [room, isTeacher, showWhiteboard, localParticipant, roomName]);
+  }, [room, isTeacher, showWhiteboard, localParticipant, roomName, globalWhiteboardAllowed, globalScreenShareAllowed, allowedWhiteboardStudents, allowedScreenShareStudents]);
 
   // Query whiteboard state when joining
   useEffect(() => {
@@ -369,6 +617,17 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
     }, 1500);
     return () => clearTimeout(timer);
   }, [room, isTeacher, localParticipant]);
+
+  // Auto screen share revocation for students
+  useEffect(() => {
+    if (!isTeacher && isScreenShareEnabled && !isScreenShareAllowed) {
+      localParticipant.setScreenShareEnabled(false).catch(err => {
+        console.error('Failed to auto-stop screen share:', err);
+      });
+    }
+  }, [isTeacher, isScreenShareEnabled, isScreenShareAllowed, localParticipant]);
+
+
 
   // Extract separate camera track categories
   const remoteStudents = useMemo(() => {
@@ -644,8 +903,6 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
           isFocusMode={isFocusMode}
           setIsFocusMode={setIsFocusMode}
           showSplitLayout={showSplitLayout}
-          isCopied={isCopied}
-          handleCopyLink={handleCopyLink}
         />
 
         {/* Content Viewport */}
@@ -657,31 +914,126 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
             showSplitLayout={showSplitLayout}
           />
 
-          {showWhiteboard ? (
-            /* Whiteboard takes center stage */
-            <div className="w-full h-full bg-white relative">
-              <WhiteboardWrapper roomName={roomName} userName={userName} onEditorMount={handleEditorMount} />
-            </div>
-          ) : hasScreenShare && screenShareTrackRef ? (
-            /* Screen Share takes center stage */
-            <div className="w-full h-full flex items-center justify-center p-4">
-              <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl">
-                <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
-              </div>
-            </div>
-          ) : (
-            <GridView
+          {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
+          <div className={`w-full h-full bg-white ${showWhiteboard ? 'relative block' : 'absolute inset-0 opacity-0 pointer-events-none'}`}>
+            <WhiteboardWrapper 
+              roomName={roomName} 
+              userName={userName} 
+              onEditorMount={handleEditorMount} 
               isTeacher={isTeacher}
-              activeStudentTrack={activeStudentTrack}
-              teacherTrack={teacherTrack}
-              remoteStudents={remoteStudents}
-              gridStudents={gridStudents}
-              maxGridPage={maxGridPage}
-              studentGridPage={studentGridPage}
-              handlePrevGridPage={handlePrevGridPage}
-              handleNextGridPage={handleNextGridPage}
-              cameraTracksCount={cameraTracks.length}
+              isWritable={isWhiteboardAllowed}
             />
+
+            {/* Empty Whiteboard Placeholder Overlay */}
+            {showWhiteboard && isWhiteboardEmpty && editor && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50/50 pointer-events-none z-[100] animate-in fade-in duration-200">
+                <div className="text-center p-6 max-w-sm rounded-2xl bg-white/85 border border-zinc-300 shadow-md backdrop-blur-md">
+                  <p className="text-sm font-semibold text-zinc-500 font-sans leading-relaxed">
+                    {isTeacher 
+                      ? "Click on + Add page to start writing"
+                      : "Waiting for the teacher to start writing..."}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Whiteboard Page Controls (restricted to teachers) */}
+            {isTeacher && editor && (
+              <div 
+                style={{
+                  transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
+                }}
+                className="absolute bottom-6 left-6 z-[999] flex items-center gap-3 bg-[#e4e4eb] border border-zinc-300 p-2 rounded-2xl shadow-md select-none"
+              >
+                <div 
+                  onMouseDown={handleMouseDown}
+                  className="flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-wider uppercase text-zinc-500 pl-1.5 pr-2.5 border-r border-zinc-300 h-6 select-none cursor-grab active:cursor-grabbing"
+                  title="Drag to reposition"
+                >
+                  <GripVertical className="w-3.5 h-3.5 text-zinc-400" />
+                  Pages
+                </div>
+                
+                <button
+                  onClick={() => addHandDrawnPage(editor)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-950 rounded-xl text-xs font-semibold transition-all cursor-pointer font-sans border border-zinc-300 shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5 text-zinc-950" />
+                  Add Page
+                </button>
+
+                <label className={`flex items-center gap-1.5 px-3 py-1.5 bg-[#3182ed] hover:bg-[#256ec7] text-white rounded-xl text-xs font-semibold transition-all border border-[#3182ed]/25 shadow-sm select-none ${isImportingPdf ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  {isImportingPdf ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>
+                        {pdfImportProgress.total > 0
+                          ? `Importing ${pdfImportProgress.current}/${pdfImportProgress.total}`
+                          : 'Importing...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5 text-white" />
+                      <span>Import PDF/Img</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="application/pdf, image/*"
+                    disabled={isImportingPdf}
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setIsImportingPdf(true);
+                      setPdfImportProgress({ current: 0, total: 0 });
+                      try {
+                        if (file.type === 'application/pdf') {
+                          await importPdf(editor, file, (current, total) => {
+                            setPdfImportProgress({ current, total });
+                          });
+                        } else if (file.type.startsWith('image/')) {
+                          await importImage(editor, file);
+                        } else {
+                          alert('Unsupported file type. Please upload a PDF or an image.');
+                        }
+                      } catch (err) {
+                        console.error('Failed to import media:', err);
+                        alert('Failed to import media. Please check the file and try again.');
+                      } finally {
+                        setIsImportingPdf(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {!showWhiteboard && (
+            hasScreenShare && screenShareTrackRef ? (
+              /* Screen Share takes center stage */
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl">
+                  <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
+                </div>
+              </div>
+            ) : (
+              <GridView
+                isTeacher={isTeacher}
+                activeStudentTrack={activeStudentTrack}
+                teacherTrack={teacherTrack}
+                remoteStudents={remoteStudents}
+                gridStudents={gridStudents}
+                maxGridPage={maxGridPage}
+                studentGridPage={studentGridPage}
+                handlePrevGridPage={handlePrevGridPage}
+                handleNextGridPage={handleNextGridPage}
+                cameraTracksCount={cameraTracks.length}
+              />
+            )
           )}
 
         </div>
@@ -700,11 +1052,57 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
           isTeacher={isTeacher}
           isExporting={isExporting}
           handleEndClass={handleEndClass}
-          onLeave={onLeave}
+          onLeave={() => {
+            if (isTeacher) {
+              setShowEndCallModal(true);
+            } else {
+              onLeave();
+            }
+          }}
           exportedPdfUrl={exportedPdfUrl}
           activeRightPanelTab={activeRightPanelTab}
           setActiveRightPanelTab={setActiveRightPanelTab}
+          isWhiteboardAllowed={isWhiteboardAllowed}
+          isScreenShareAllowed={isScreenShareAllowed}
         />
+
+        {/* End Call Options Modal for Teachers */}
+        {showEndCallModal && (
+          <div className="fixed inset-0 z-[1000000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#0b0f19]/90 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+              <h3 className="text-lg font-bold text-white text-center font-sans">End Session</h3>
+              <p className="text-sm text-foreground/60 text-center leading-normal font-sans">
+                Choose how you want to exit the class session.
+              </p>
+              <div className="flex flex-col gap-2.5 pt-2 font-sans">
+                <button
+                  onClick={() => {
+                    setShowEndCallModal(false);
+                    handleEndClass(true);
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                >
+                  End Call for All
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEndCallModal(false);
+                    onLeave();
+                  }}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[#ffffff] font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                >
+                  Leave Meeting
+                </button>
+                <button
+                  onClick={() => setShowEndCallModal(false)}
+                  className="w-full py-2 text-xs text-foreground/45 hover:text-white font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -732,7 +1130,34 @@ function RoomContent({ roomName, userName, onLeave, studentToken, onConnected }:
           localParticipant={localParticipant}
           activeChatTarget={activeChatTarget}
           setActiveChatTarget={setActiveChatTarget}
+          roomName={roomName}
+          globalWhiteboardAllowed={globalWhiteboardAllowed}
+          globalScreenShareAllowed={globalScreenShareAllowed}
+          allowedWhiteboardStudents={allowedWhiteboardStudents}
+          allowedScreenShareStudents={allowedScreenShareStudents}
+          onToggleGlobalPermission={handleToggleGlobalPermission}
+          onToggleStudentPermission={handleToggleStudentPermission}
         />
+      )}
+
+      {/* Exporting / Publishing Notes Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 z-[1000000] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div className="flex flex-col items-center space-y-4 max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative w-16 h-16">
+              {/* Outer spinning ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+              {/* Inner loading ring */}
+              <div className="absolute inset-2 rounded-full border-4 border-b-emerald-400 border-t-transparent border-r-transparent border-l-transparent animate-spin duration-1000 ease-in-out"></div>
+              {/* Center pulsing dot */}
+              <div className="absolute inset-5.5 rounded-full bg-white/20 animate-pulse"></div>
+            </div>
+            <h3 className="text-xl font-bold text-white font-sans mt-4">Publishing Notes</h3>
+            <p className="text-sm text-foreground/60 leading-relaxed font-sans">
+              Generating high-fidelity multi-page PDF notes and uploading them. Please wait a moment...
+            </p>
+          </div>
+        </div>
       )}
 
     </div>
@@ -747,7 +1172,6 @@ export default function VideoRoom({
   iceServers,
   onDisconnected,
   sessionToken,
-  studentToken,
   audioDeviceId,
   videoDeviceId,
   onConnected,
@@ -811,8 +1235,8 @@ export default function VideoRoom({
         roomName={roomName} 
         userName={userName} 
         onLeave={handleLeave} 
-        studentToken={studentToken} 
         onConnected={onConnected}
+        sessionToken={sessionToken}
       />
       <RoomAudioRenderer />
     </LiveKitRoom>

@@ -3,6 +3,8 @@ import dynamic from 'next/dynamic';
 interface WhiteboardProps {
   roomName: string;
   userName?: string;
+  isTeacher: boolean;
+  isWritable: boolean;
   onEditorMount?: (editor: any) => void;
 }
 
