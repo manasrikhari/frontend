@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+const DEBUG_PERF = true;
 import { 
   Tldraw, 
   TLAssetStore, 
@@ -98,7 +99,6 @@ export default function Whiteboard({
   });
 
   const [editor, setEditor] = useState<any>(null);
-  const [isFollowingTeacher, setIsFollowingTeacher] = useState(false);
 
   const handleMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
@@ -106,6 +106,115 @@ export default function Whiteboard({
       onEditorMount(editorInstance);
     }
   }, [onEditorMount]);
+
+  // Temporary Performance Instrumentation (to be removed after diagnosis)
+  useEffect(() => {
+    if (!DEBUG_PERF) return;
+    if (!editor || typeof window === 'undefined') return;
+
+    console.log('[PERF_MONITOR] Initializing whiteboard sync performance monitors...');
+
+    const OriginalWebSocket = window.WebSocket;
+
+    class InstrumentedWebSocket extends OriginalWebSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super(url, protocols);
+        console.log(`[PERF_MONITOR][WS Connect] Connected to: ${url}`);
+
+        const originalSend = this.send;
+        this.send = function (data: any) {
+          const sendTime = Date.now();
+          let size = 0;
+          if (typeof data === 'string') size = data.length;
+          else if (data instanceof ArrayBuffer) size = data.byteLength;
+          else if (data instanceof Blob) size = data.size;
+
+          console.log(`[PERF_MONITOR][WS Send] time: ${sendTime}, size: ${size} bytes`);
+          return originalSend.call(this, data);
+        };
+
+        this.addEventListener('message', (event) => {
+          const recvTime = performance.now();
+          let size = 0;
+          if (typeof event.data === 'string') size = event.data.length;
+          else if (event.data instanceof ArrayBuffer) size = event.data.byteLength;
+          else if (event.data instanceof Blob) size = event.data.size;
+
+          console.log(`[PERF_MONITOR][WS Recv] time: ${Date.now()}, size: ${size} bytes`);
+          (window as any).__lastWsRecvTime = recvTime;
+        });
+      }
+    }
+
+    window.WebSocket = InstrumentedWebSocket as any;
+
+    const cleanupStore = editor.store.listen((event: any) => {
+      const now = Date.now();
+      const perfNow = performance.now();
+
+      if (event.source === 'remote') {
+        const lastRecv = (window as any).__lastWsRecvTime;
+        if (lastRecv) {
+          const processingDuration = perfNow - lastRecv;
+          console.log(`[PERF_MONITOR][Remote Apply] time: ${now}, processing time: ${processingDuration.toFixed(2)}ms`);
+        }
+
+        if (event.changes.added) {
+          Object.values(event.changes.added).forEach((shape: any) => {
+            if (shape.meta && shape.meta.sentAt) {
+              const latency = now - shape.meta.sentAt;
+              console.log(`[PERF_MONITOR][Latency E2E Add] Shape: ${shape.id}, Latency: ${latency}ms`);
+            }
+          });
+        }
+        if (event.changes.updated) {
+          Object.values(event.changes.updated).forEach(([prev, curr]: any) => {
+            if (curr.meta && curr.meta.sentAt) {
+              const latency = now - curr.meta.sentAt;
+              console.log(`[PERF_MONITOR][Latency E2E Update] Shape: ${curr.id}, Latency: ${latency}ms`);
+            }
+          });
+        }
+      }
+
+      if (event.source === 'user') {
+        let modified = false;
+        editor.run(() => {
+          if (event.changes.added) {
+            Object.values(event.changes.added).forEach((shape: any) => {
+              if (shape.type !== 'pointer' && (!shape.meta || !shape.meta.sentAt)) {
+                editor.updateShape({
+                  id: shape.id,
+                  meta: { ...shape.meta, sentAt: now }
+                });
+                modified = true;
+              }
+            });
+          }
+          if (event.changes.updated) {
+            Object.values(event.changes.updated).forEach(([prev, curr]: any) => {
+              if (curr.type !== 'pointer' && (!curr.meta || curr.meta.sentAt !== now)) {
+                editor.updateShape({
+                  id: curr.id,
+                  meta: { ...curr.meta, sentAt: now }
+                });
+                modified = true;
+              }
+            });
+          }
+        });
+        if (modified) {
+          console.log(`[PERF_MONITOR][Local Send Timestamp Injected] time: ${now}`);
+        }
+      }
+    }, { scope: 'document' });
+
+    return () => {
+      window.WebSocket = OriginalWebSocket;
+      cleanupStore();
+      console.log('[PERF_MONITOR] Whiteboard sync performance monitors cleaned up.');
+    };
+  }, [editor]);
 
   // Set the user name in Tldraw preferences
   useEffect(() => {
@@ -128,14 +237,202 @@ export default function Whiteboard({
     }
   }, [editor, isTeacher, isWritable]);
 
-  // Follow the teacher's cursor/viewport by default for students
+  // Camera and zoom confinement logic
+  useEffect(() => {
+    if (!editor) return;
+
+    let isClamping = false;
+    const maxYRef = { current: 810 };
+
+    const updateMaxY = () => {
+      const frames = editor.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+      maxYRef.current = frames.length > 0
+        ? frames.reduce((max: number, f: any) => {
+            const h = (f.props.h as number) ?? 810;
+            return Math.max(max, f.y + h);
+          }, 0)
+        : 810;
+    };
+
+    const clampCamera = () => {
+      if (isClamping) return;
+
+      // Skip clamping if the user is a participant and currently following the teacher
+      const instanceState = editor.getInstanceState();
+      if (!isTeacher && instanceState?.followingUserId) {
+        return;
+      }
+
+      const camera = editor.getCamera();
+      const screen = editor.getViewportScreenBounds();
+      if (!screen || screen.width === 0 || screen.height === 0) return;
+
+      // 1. Calculate boundaries (100px padding from all 4 directions)
+      const minCanvasX = -100;
+      const maxCanvasX = 1440 + 100;
+
+      const minCanvasY = -100;
+      const maxCanvasY = maxYRef.current + 100;
+
+      // 2. Clamp Zoom
+      const minZoomX = screen.width / (maxCanvasX - minCanvasX);
+      const minZoomY = screen.height / (maxCanvasY - minCanvasY);
+      
+      // We clamp zoom to be at least minZoomX and minZoomY so they can't zoom out past the pages
+      const MAX_ZOOM = 4;
+      let clampedZ = Math.max(camera.z, minZoomX, minZoomY);
+      clampedZ = Math.min(clampedZ, MAX_ZOOM);
+
+      // 3. Clamp Positions
+      const viewportWidthInCanvas = screen.width / clampedZ;
+      const viewportHeightInCanvas = screen.height / clampedZ;
+
+      // Current viewport top-left in page (canvas) coordinates
+      const viewX = -camera.x;
+      const viewY = -camera.y;
+
+      let clampedViewX = viewX;
+      if (viewportWidthInCanvas > (maxCanvasX - minCanvasX)) {
+        clampedViewX = minCanvasX + (maxCanvasX - minCanvasX - viewportWidthInCanvas) / 2;
+      } else {
+        clampedViewX = Math.max(minCanvasX, Math.min(maxCanvasX - viewportWidthInCanvas, viewX));
+      }
+
+      let clampedViewY = viewY;
+      if (viewportHeightInCanvas > (maxCanvasY - minCanvasY)) {
+        clampedViewY = minCanvasY + (maxCanvasY - minCanvasY - viewportHeightInCanvas) / 2;
+      } else {
+        clampedViewY = Math.max(minCanvasY, Math.min(maxCanvasY - viewportHeightInCanvas, viewY));
+      }
+
+      const clampedX = -clampedViewX;
+      const clampedY = -clampedViewY;
+
+      // 4. Update if changed
+      const EPSILON = 0.01;
+      if (
+        Math.abs(camera.x - clampedX) > EPSILON ||
+        Math.abs(camera.y - clampedY) > EPSILON ||
+        Math.abs(camera.z - clampedZ) > EPSILON
+      ) {
+        isClamping = true;
+        try {
+          editor.setCamera({ x: clampedX, y: clampedY, z: clampedZ });
+        } finally {
+          isClamping = false;
+        }
+      }
+    };
+
+    // Run clamp on mount or whenever editor changes
+    updateMaxY();
+    clampCamera();
+
+    // Invalidate/update cache and re-clamp when frames change in document
+    const cleanupFrames = editor.store.listen(
+      (event: any) => {
+        const hasAddedFrame = event.changes.added && 
+          Object.values(event.changes.added).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+        const hasRemovedFrame = event.changes.removed && 
+          Object.values(event.changes.removed).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+        const hasUpdatedFrame = event.changes.updated && 
+          Object.values(event.changes.updated).some(([prev, curr]: any) => curr.typeName === 'shape' && curr.type === 'frame');
+
+        if (hasAddedFrame || hasRemovedFrame || hasUpdatedFrame) {
+          updateMaxY();
+          clampCamera();
+        }
+      },
+      { scope: 'document' }
+    );
+
+    // clampCamera only re-runs when the LOCAL user pans/zooms their own camera.
+    const cleanupCamera = editor.store.listen(
+      () => {
+        clampCamera();
+      },
+      { scope: 'session', source: 'user' }
+    );
+
+    return () => {
+      cleanupFrames();
+      cleanupCamera();
+    };
+  }, [editor, isTeacher]);
+
+  return (
+    <div className="w-full h-full relative">
+      <Tldraw 
+        store={store} 
+        onMount={handleMount}
+        components={whiteboardComponents}
+        overrides={whiteboardOverrides}
+      />
+
+      {/* Empty Whiteboard Placeholder Overlay */}
+      <EmptyWhiteboardOverlay editor={editor} isTeacher={isTeacher} />
+
+      {/* Floating "Resume Following Teacher" Button for Students */}
+      <ResumeFollowingButton editor={editor} isTeacher={isTeacher} />
+    </div>
+  );
+}
+
+function EmptyWhiteboardOverlay({ editor, isTeacher }: { editor: any; isTeacher: boolean }) {
+  const [isEmpty, setIsEmpty] = useState(true);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const checkEmpty = () => {
+      const frames = editor.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+      setIsEmpty(frames.length === 0);
+    };
+
+    checkEmpty();
+
+    const cleanup = editor.store.listen((event: any) => {
+      const hasAddedFrame = event.changes.added && 
+        Object.values(event.changes.added).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+      const hasRemovedFrame = event.changes.removed && 
+        Object.values(event.changes.removed).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+
+      if (!hasAddedFrame && !hasRemovedFrame) {
+        return;
+      }
+
+      checkEmpty();
+    }, { scope: 'document' });
+
+    return () => {
+      cleanup();
+    };
+  }, [editor]);
+
+  if (!isEmpty) return null;
+
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50/50 pointer-events-none z-[100] animate-in fade-in duration-200">
+      <div className="text-center p-6 max-w-sm rounded-2xl bg-white/85 border border-zinc-300 shadow-md backdrop-blur-md">
+        <p className="text-sm font-semibold text-zinc-500 font-sans leading-relaxed">
+          {isTeacher 
+            ? "Click on + Add page to start writing"
+            : "Waiting for the teacher to start writing..."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ResumeFollowingButton({ editor, isTeacher }: { editor: any; isTeacher: boolean }) {
+  const [isFollowingTeacher, setIsFollowingTeacher] = useState(false);
+
   useEffect(() => {
     if (!editor || isTeacher) return;
 
     const checkAndFollowTeacher = () => {
       const instanceState = editor.getInstanceState();
       const currentFollowing = instanceState.followingUserId;
-
       const teacher = editor.getCollaborators().find((c: any) => c.userName?.endsWith('(Teacher)'));
 
       if (teacher) {
@@ -165,7 +462,7 @@ export default function Whiteboard({
         const teacher = editor.getCollaborators().find((c: any) => c.userName?.endsWith('(Teacher)'));
         setIsFollowingTeacher(!!teacher && instanceState.followingUserId === teacher.userId);
       },
-      { source: 'all' }
+      { scope: 'session', source: 'user' }
     );
 
     return () => {
@@ -174,34 +471,27 @@ export default function Whiteboard({
     };
   }, [editor, isTeacher]);
 
-  return (
-    <div className="w-full h-full relative">
-      <Tldraw 
-        store={store} 
-        onMount={handleMount}
-        components={whiteboardComponents}
-        overrides={whiteboardOverrides}
-      />
+  if (isTeacher || isFollowingTeacher || !editor) return null;
 
-      {/* Floating "Resume Following Teacher" Button for Students */}
-      {!isTeacher && !isFollowingTeacher && editor && editor.getCollaborators().some((c: any) => c.userName?.endsWith('(Teacher)')) && (
-        <button
-          onClick={() => {
-            const teacher = editor.getCollaborators().find((c: any) => c.userName?.endsWith('(Teacher)'));
-            if (teacher) {
-              editor.startFollowingUser(teacher.userId);
-              setIsFollowingTeacher(true);
-            }
-          }}
-          className="absolute bottom-6 right-6 z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-200 border border-primary/20 animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-          Resume Following Teacher
-        </button>
-      )}
-    </div>
+  const hasTeacher = editor.getCollaborators().some((c: any) => c.userName?.endsWith('(Teacher)'));
+  if (!hasTeacher) return null;
+
+  return (
+    <button
+      onClick={() => {
+        const teacher = editor.getCollaborators().find((c: any) => c.userName?.endsWith('(Teacher)'));
+        if (teacher) {
+          editor.startFollowingUser(teacher.userId);
+          setIsFollowingTeacher(true);
+        }
+      }}
+      className="absolute bottom-6 right-6 z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-200 border border-primary/20 animate-in fade-in slide-in-from-bottom-3 duration-200"
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      </svg>
+      Resume Following Teacher
+    </button>
   );
 }

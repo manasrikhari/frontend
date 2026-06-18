@@ -15,8 +15,9 @@ import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import WhiteboardWrapper from './WhiteboardWrapper';
 import { decodeJwt } from '@/lib/api';
 import type { IceServer } from '@/lib/api';
-import { Plus, Upload, GripVertical } from 'lucide-react';
-import { addHandDrawnPage, importPdf, importImage, getPagesSorted } from './classroom/whiteboard-helpers';
+import WhiteboardPageControls from './classroom/WhiteboardPageControls';
+import { getPagesSorted } from './classroom/whiteboard-helpers';
+
 
 import Header from './classroom/Header';
 import Controls from './classroom/Controls';
@@ -78,53 +79,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [lastActiveStudentSid, setLastActiveStudentSid] = useState<string | null>(null);
   const [editor, setEditor] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [isImportingPdf, setIsImportingPdf] = useState(false);
-  const [pdfImportProgress, setPdfImportProgress] = useState({ current: 0, total: 0 });
   const [exportedPdfUrl, setExportedPdfUrl] = useState<string | null>(null);
-  const [isWhiteboardEmpty, setIsWhiteboardEmpty] = useState(true);
-
-  // Floating pages panel dragging states & handlers
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const startOffsetRef = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-      setDragOffset({
-        x: startOffsetRef.current.x + dx,
-        y: startOffsetRef.current.y + dy,
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('label') || target.closest('input')) {
-      return;
-    }
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-    startOffsetRef.current = dragOffset;
-    e.preventDefault();
-  };
 
   const [showEndCallModal, setShowEndCallModal] = useState(false);
 
@@ -259,19 +214,38 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       boundsCleanupRef.current();
     }
 
-    // Initialize state
-    const initialFrames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
-    setIsWhiteboardEmpty(initialFrames.length === 0);
+    let cachedFramesBounds: { x: number; y: number; w: number; h: number }[] = [];
 
-    // Register listener to enforce frame boundaries and track empty state
-    const cleanup = editorInstance.store.listen((event: any) => {
-      // Always update empty state when store changes
-      const currentFrames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
-      setIsWhiteboardEmpty(currentFrames.length === 0);
-
-      if (event.source !== 'user') return;
-
+    const updateCachedFrames = () => {
       const frames = editorInstance.getCurrentPageShapes().filter((s: any) => s.type === 'frame');
+      cachedFramesBounds = frames
+        .map((f: any) => {
+          const bounds = editorInstance.getShapePageBounds(f.id);
+          return bounds ? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } : null;
+        })
+        .filter((b: any): b is { x: number; y: number; w: number; h: number } => !!b);
+    };
+
+    // Initialize cache
+    updateCachedFrames();
+
+    // Invalidate/update cache when frames change
+    const cleanupFrames = editorInstance.store.listen((event: any) => {
+      const hasAddedFrame = event.changes.added && 
+        Object.values(event.changes.added).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+      const hasRemovedFrame = event.changes.removed && 
+        Object.values(event.changes.removed).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
+      const hasUpdatedFrame = event.changes.updated && 
+        Object.values(event.changes.updated).some(([prev, curr]: any) => curr.typeName === 'shape' && curr.type === 'frame');
+
+      if (hasAddedFrame || hasRemovedFrame || hasUpdatedFrame) {
+        updateCachedFrames();
+      }
+    }, { scope: 'document' });
+
+    // Register listener to enforce frame boundaries using cached bounds
+    const cleanupEnforcer = editorInstance.store.listen((event: any) => {
+      if (event.source !== 'user') return;
 
       const isShapeInsideAnyFrame = (shape: any) => {
         if (shape.type === 'frame') return true;
@@ -292,15 +266,12 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         };
 
         // See if center is inside any frame
-        for (const frame of frames) {
-          const frameBounds = editorInstance.getShapePageBounds(frame.id);
-          if (!frameBounds) continue;
-
+        for (const fb of cachedFramesBounds) {
           if (
-            shapeCenter.x >= frameBounds.x &&
-            shapeCenter.x <= frameBounds.x + frameBounds.w &&
-            shapeCenter.y >= frameBounds.y &&
-            shapeCenter.y <= frameBounds.y + frameBounds.h
+            shapeCenter.x >= fb.x &&
+            shapeCenter.x <= fb.x + fb.w &&
+            shapeCenter.y >= fb.y &&
+            shapeCenter.y <= fb.y + fb.h
           ) {
             return true;
           }
@@ -343,7 +314,10 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       }
     }, { scope: 'document' });
 
-    boundsCleanupRef.current = cleanup;
+    boundsCleanupRef.current = () => {
+      cleanupFrames();
+      cleanupEnforcer();
+    };
   }, []);
 
   const sendMessage = useCallback(async (text: string, targetIdentity?: string, targetName?: string) => {
@@ -380,6 +354,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       console.error('Failed to send chat message:', err);
     }
   }, [localParticipant, userName]);
+
+
 
   const handleEndClass = async (bypassConfirm = false) => {
     if (!bypassConfirm) {
@@ -924,92 +900,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               isWritable={isWhiteboardAllowed}
             />
 
-            {/* Empty Whiteboard Placeholder Overlay */}
-            {showWhiteboard && isWhiteboardEmpty && editor && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-50/50 pointer-events-none z-[100] animate-in fade-in duration-200">
-                <div className="text-center p-6 max-w-sm rounded-2xl bg-white/85 border border-zinc-300 shadow-md backdrop-blur-md">
-                  <p className="text-sm font-semibold text-zinc-500 font-sans leading-relaxed">
-                    {isTeacher 
-                      ? "Click on + Add page to start writing"
-                      : "Waiting for the teacher to start writing..."}
-                  </p>
-                </div>
-              </div>
-            )}
-            
             {/* Whiteboard Page Controls (restricted to teachers) */}
-            {isTeacher && editor && (
-              <div 
-                style={{
-                  transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
-                }}
-                className="absolute bottom-6 left-6 z-[999] flex items-center gap-3 bg-[#e4e4eb] border border-zinc-300 p-2 rounded-2xl shadow-md select-none"
-              >
-                <div 
-                  onMouseDown={handleMouseDown}
-                  className="flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-wider uppercase text-zinc-500 pl-1.5 pr-2.5 border-r border-zinc-300 h-6 select-none cursor-grab active:cursor-grabbing"
-                  title="Drag to reposition"
-                >
-                  <GripVertical className="w-3.5 h-3.5 text-zinc-400" />
-                  Pages
-                </div>
-                
-                <button
-                  onClick={() => addHandDrawnPage(editor)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-950 rounded-xl text-xs font-semibold transition-all cursor-pointer font-sans border border-zinc-300 shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5 text-zinc-950" />
-                  Add Page
-                </button>
-
-                <label className={`flex items-center gap-1.5 px-3 py-1.5 bg-[#3182ed] hover:bg-[#256ec7] text-white rounded-xl text-xs font-semibold transition-all border border-[#3182ed]/25 shadow-sm select-none ${isImportingPdf ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                  {isImportingPdf ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>
-                        {pdfImportProgress.total > 0
-                          ? `Importing ${pdfImportProgress.current}/${pdfImportProgress.total}`
-                          : 'Importing...'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-3.5 h-3.5 text-white" />
-                      <span>Import PDF/Img</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="application/pdf, image/*"
-                    disabled={isImportingPdf}
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setIsImportingPdf(true);
-                      setPdfImportProgress({ current: 0, total: 0 });
-                      try {
-                        if (file.type === 'application/pdf') {
-                          await importPdf(editor, file, (current, total) => {
-                            setPdfImportProgress({ current, total });
-                          });
-                        } else if (file.type.startsWith('image/')) {
-                          await importImage(editor, file);
-                        } else {
-                          alert('Unsupported file type. Please upload a PDF or an image.');
-                        }
-                      } catch (err) {
-                        console.error('Failed to import media:', err);
-                        alert('Failed to import media. Please check the file and try again.');
-                      } finally {
-                        setIsImportingPdf(false);
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
+            <WhiteboardPageControls editor={editor} isTeacher={isTeacher} />
           </div>
 
           {!showWhiteboard && (

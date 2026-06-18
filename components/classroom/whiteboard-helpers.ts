@@ -108,6 +108,11 @@ export async function importPdf(
 
   let nextIndex = getNextPageIndex(editor);
   const pages = getPagesSorted(editor);
+  const PAGE_W = 1440;
+  const PAGE_H = 810;
+  const CANVAS_W = 2880;
+  const CANVAS_H = 1620;
+  
   let y = pages.length
     ? pages[pages.length - 1].y + ((pages[pages.length - 1].props.h as number) ?? 0) + 50
     : 0;
@@ -120,15 +125,37 @@ export async function importPdf(
       onProgress(i, pdf.numPages);
     }
     const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2 }); // 2x scale for high rendering quality
 
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    // 1. Get the viewport at a scale to fit the 2880x1620 canvas
+    const pageViewport = page.getViewport({ scale: 1 });
+    const sX = CANVAS_W / pageViewport.width;
+    const sY = CANVAS_H / pageViewport.height;
+    const scale = Math.min(sX, sY);
+    const renderViewport = page.getViewport({ scale });
 
-    const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), 'image/png'));
+    // 2. Render PDF page to a temporary canvas of its actual fitted size
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = renderViewport.width;
+    tempCanvas.height = renderViewport.height;
+    const tempCtx = tempCanvas.getContext('2d')!;
+    await page.render({ canvasContext: tempCtx, viewport: renderViewport, canvas: tempCanvas }).promise;
+
+    // 3. Create the main canvas with uniform size
+    const mainCanvas = document.createElement('canvas');
+    mainCanvas.width = CANVAS_W;
+    mainCanvas.height = CANVAS_H;
+    const mainCtx = mainCanvas.getContext('2d')!;
+
+    // Fill white background
+    mainCtx.fillStyle = '#ffffff';
+    mainCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Center the tempCanvas on mainCanvas
+    const offsetX = (CANVAS_W - renderViewport.width) / 2;
+    const offsetY = (CANVAS_H - renderViewport.height) / 2;
+    mainCtx.drawImage(tempCanvas, offsetX, offsetY);
+
+    const blob: Blob = await new Promise((res) => mainCanvas.toBlob((b) => res(b!), 'image/png'));
     
     // Upload page image to R2 bucket
     const uploadId = `${crypto.randomUUID()}-${file.name}-page-${i}.png`.replace(/[^a-zA-Z0-9.]/g, '-');
@@ -147,8 +174,8 @@ export async function importPdf(
     }
 
     const frameId = createShapeId();
-    const w = viewport.width / 2; // scale back to Tldraw canvas coordinates
-    const h = viewport.height / 2;
+    const w = PAGE_W;
+    const h = PAGE_H;
 
     const pageIdx = nextIndex;
     const currentY = y;
@@ -207,6 +234,10 @@ export async function importPdf(
  */
 export async function importImage(editor: Editor, file: File) {
   const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
+  const PAGE_W = 1440;
+  const PAGE_H = 810;
+  const CANVAS_W = 2880;
+  const CANVAS_H = 1620;
 
   // 1. Get image dimensions
   const img: HTMLImageElement = await new Promise((resolve, reject) => {
@@ -221,19 +252,42 @@ export async function importImage(editor: Editor, file: File) {
     reader.readAsDataURL(file);
   });
 
-  const w = img.naturalWidth || 800;
-  const h = img.naturalHeight || 600;
+  const imgW = img.naturalWidth || 800;
+  const imgH = img.naturalHeight || 600;
 
-  // 2. Upload image to R2 bucket
-  const uploadId = `${crypto.randomUUID()}-${file.name}`.replace(/[^a-zA-Z0-9.]/g, '-');
+  // 2. Render image onto a uniform-sized 2880x1620 canvas filled with white
+  const mainCanvas = document.createElement('canvas');
+  mainCanvas.width = CANVAS_W;
+  mainCanvas.height = CANVAS_H;
+  const mainCtx = mainCanvas.getContext('2d')!;
+
+  mainCtx.fillStyle = '#ffffff';
+  mainCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Calculate scale to fit image in 2880x1620
+  const sX = CANVAS_W / imgW;
+  const sY = CANVAS_H / imgH;
+  const scale = Math.min(sX, sY);
+
+  const renderW = imgW * scale;
+  const renderH = imgH * scale;
+  const offsetX = (CANVAS_W - renderW) / 2;
+  const offsetY = (CANVAS_H - renderH) / 2;
+
+  mainCtx.drawImage(img, offsetX, offsetY, renderW, renderH);
+
+  const blob: Blob = await new Promise((res) => mainCanvas.toBlob((b) => res(b!), 'image/png'));
+
+  // 3. Upload image to R2 bucket
+  const uploadId = `${crypto.randomUUID()}-${file.name}.png`.replace(/[^a-zA-Z0-9.]/g, '-');
   const uploadUrl = `${SYNC_WORKER_URL}/api/uploads/${uploadId}`;
   
   const response = await fetch(uploadUrl, {
     method: 'POST',
     headers: {
-      'Content-Type': file.type,
+      'Content-Type': 'image/png',
     },
-    body: file,
+    body: blob,
   });
 
   if (!response.ok) {
@@ -248,6 +302,8 @@ export async function importImage(editor: Editor, file: File) {
     : 0;
 
   const frameId = createShapeId();
+  const w = PAGE_W;
+  const h = PAGE_H;
 
   editor.run(() => {
     // 1. Create the parent frame
@@ -272,7 +328,7 @@ export async function importImage(editor: Editor, file: File) {
           src: uploadUrl,
           w,
           h,
-          mimeType: file.type,
+          mimeType: 'image/png',
           isAnimated: false,
         },
         meta: {},
