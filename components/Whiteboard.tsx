@@ -1,6 +1,6 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
-const DEBUG_PERF = true;
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+const DEBUG_PERF = false;
 import { 
   Tldraw, 
   TLAssetStore, 
@@ -10,10 +10,27 @@ import {
   ViewSubmenu, 
   PreferencesGroup, 
   KeyboardShortcutsMenuItem,
-  TldrawUiMenuGroup
+  TldrawUiMenuGroup,
+  CollaboratorCursorOverlayUtil,
+  CollaboratorHintOverlayUtil
 } from 'tldraw';
+
+class HiddenCollaboratorCursorOverlayUtil extends CollaboratorCursorOverlayUtil {
+  override render() {
+    // intentionally draw nothing
+  }
+}
+
+class HiddenCollaboratorHintOverlayUtil extends CollaboratorHintOverlayUtil {
+  override render() {
+    // intentionally draw nothing
+  }
+}
 import 'tldraw/tldraw.css';
 import { useSync } from '@tldraw/sync';
+import { useStrokeCapture } from '../hooks/useStrokeCapture';
+import { useCursorBroadcast } from '../hooks/useCursorBroadcast';
+import StrokeOverlay from './whiteboard/StrokeOverlay';
 
 interface WhiteboardProps {
   roomName: string;
@@ -21,6 +38,8 @@ interface WhiteboardProps {
   isTeacher: boolean;
   isWritable: boolean;
   onEditorMount?: (editor: any) => void;
+  room?: any;
+  localParticipant?: any;
 }
 
 const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
@@ -90,7 +109,9 @@ export default function Whiteboard({
   userName, 
   isTeacher, 
   isWritable, 
-  onEditorMount 
+  onEditorMount,
+  room,
+  localParticipant
 }: WhiteboardProps) {
   // useSync connects to our self-hosted Cloudflare worker sync endpoint
   const store = useSync({
@@ -358,7 +379,11 @@ export default function Whiteboard({
       cleanupFrames();
       cleanupCamera();
     };
-  }, [editor, isTeacher]);
+  }, [editor]);
+
+  // Capture active writer coordinates (teacher or writable students)
+  useStrokeCapture({ editor, localParticipant, isWritable });
+  useCursorBroadcast({ editor, localParticipant, isWritable, userName: userName || 'Participant' });
 
   return (
     <div className="w-full h-full relative">
@@ -367,13 +392,24 @@ export default function Whiteboard({
         onMount={handleMount}
         components={whiteboardComponents}
         overrides={whiteboardOverrides}
+        overlayUtils={[HiddenCollaboratorCursorOverlayUtil, HiddenCollaboratorHintOverlayUtil]}
+      />
+
+      {/* Stroke Overlay Canvas */}
+      <StrokeOverlay 
+        editor={editor} 
+        room={room} 
+        localParticipant={localParticipant} 
       />
 
       {/* Empty Whiteboard Placeholder Overlay */}
       <EmptyWhiteboardOverlay editor={editor} isTeacher={isTeacher} />
 
       {/* Floating "Resume Following Teacher" Button for Students */}
-      <ResumeFollowingButton editor={editor} isTeacher={isTeacher} />
+      <ResumeFollowingButton 
+        editor={editor} 
+        isTeacher={isTeacher} 
+      />
     </div>
   );
 }

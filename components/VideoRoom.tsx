@@ -535,7 +535,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   // Listen for whiteboard state broadcasts, note exports, and chat messages
   useEffect(() => {
     if (!room) return;
-    const handleDataReceived = (payload: Uint8Array, participant: any) => {
+    const handleDataReceived = (payload: Uint8Array, participant: any, kind?: any, topic?: string) => {
+      if (topic === 'wb-stroke') return; // Handled directly in StrokeOverlay for performance
       try {
         const decoder = new TextDecoder();
         const msg = JSON.parse(decoder.decode(payload));
@@ -898,6 +899,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               onEditorMount={handleEditorMount} 
               isTeacher={isTeacher}
               isWritable={isWhiteboardAllowed}
+              room={room}
+              localParticipant={localParticipant}
             />
 
             {/* Whiteboard Page Controls (restricted to teachers) */}
