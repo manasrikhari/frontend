@@ -121,8 +121,69 @@ export default function Whiteboard({
 
   const [editor, setEditor] = useState<any>(null);
 
+  const localParticipantRef = useRef(localParticipant);
+  const isTeacherRef = useRef(isTeacher);
+
+  // Keep refs up-to-date
+  useEffect(() => {
+    localParticipantRef.current = localParticipant;
+  }, [localParticipant]);
+
+  useEffect(() => {
+    isTeacherRef.current = isTeacher;
+  }, [isTeacher]);
+
   const handleMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
+
+    // Register side effects for shape permission & ownership
+    editorInstance.sideEffects.registerBeforeCreateHandler('shape', (shape: any, source: any) => {
+      if (source === 'remote') {
+        return shape;
+      }
+      // Don't overwrite if it already has createdBy (e.g. synced from another user)
+      if (shape.meta?.createdBy) {
+        return shape;
+      }
+      return {
+        ...shape,
+        meta: {
+          ...shape.meta,
+          createdBy: localParticipantRef.current?.identity ?? 'unknown',
+        },
+      };
+    });
+
+    editorInstance.sideEffects.registerBeforeChangeHandler('shape', (prev: any, next: any, source: any) => {
+      if (source === 'remote') {
+        return next;
+      }
+      if (isTeacherRef.current) {
+        return next;
+      }
+      const createdBy = prev.meta?.createdBy || 'unknown';
+      const myIdentity = localParticipantRef.current?.identity || 'unknown';
+      if (createdBy !== myIdentity) {
+        return prev;
+      }
+      return next;
+    });
+
+    editorInstance.sideEffects.registerBeforeDeleteHandler('shape', (shape: any, source: any) => {
+      if (source === 'remote') {
+        return true;
+      }
+      if (isTeacherRef.current) {
+        return true;
+      }
+      const createdBy = shape.meta?.createdBy || 'unknown';
+      const myIdentity = localParticipantRef.current?.identity || 'unknown';
+      if (createdBy !== myIdentity) {
+        return false;
+      }
+      return true;
+    });
+
     if (onEditorMount) {
       onEditorMount(editorInstance);
     }
@@ -245,16 +306,16 @@ export default function Whiteboard({
   }, [editor, userName, isTeacher]);
 
   // Enforce read-only and focus modes based on permissions
+  const lastAppliedWritable = useRef<boolean | null>(null);
   useEffect(() => {
     if (!editor) return;
-    if (isTeacher) {
-      editor.updateInstanceState({ isReadonly: false });
-    } else {
-      if (isWritable) {
-        editor.updateInstanceState({ isReadonly: false, isFocusMode: false });
-      } else {
-        editor.updateInstanceState({ isReadonly: true, isFocusMode: true });
-      }
+    const targetWritable = isTeacher || isWritable;
+    if (lastAppliedWritable.current !== targetWritable) {
+      editor.updateInstanceState({
+        isReadonly: !targetWritable,
+        isFocusMode: !targetWritable,
+      });
+      lastAppliedWritable.current = targetWritable;
     }
   }, [editor, isTeacher, isWritable]);
 
@@ -383,7 +444,7 @@ export default function Whiteboard({
 
   // Capture active writer coordinates (teacher or writable students)
   useStrokeCapture({ editor, localParticipant, isWritable });
-  useCursorBroadcast({ editor, localParticipant, isWritable, userName: userName || 'Participant' });
+  useCursorBroadcast({ editor, localParticipant, isWritable, userName: userName || 'Participant', isTeacher });
 
   return (
     <div className="w-full h-full relative">

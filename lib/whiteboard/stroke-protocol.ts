@@ -46,6 +46,7 @@ export interface CursorMoveMessage {
   y: number;
   /** How many participants currently have write access (teacher + permitted students) */
   numWriters: number;
+  role: 'teacher' | 'student';
 }
 
 export type StrokeMessage =

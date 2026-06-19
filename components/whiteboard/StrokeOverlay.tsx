@@ -46,6 +46,7 @@ interface RemoteCursor {
   lastSeen: number;
   numWriters: number;
   pageId: string;
+  role?: 'teacher' | 'student';
 }
 
 /** Assigned colors per participant identity (deterministic, cycles through palette) */
@@ -107,6 +108,7 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
           existing.lastSeen = now;
           existing.numWriters = msg.numWriters;
           existing.userName = msg.userName;
+          existing.role = msg.role;
         } else {
           cursorsRef.current.set(msg.userId, {
             userId: msg.userId,
@@ -116,6 +118,7 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
             lastSeen: now,
             numWriters: msg.numWriters,
             pageId: msg.pageId,
+            role: msg.role,
           });
         }
       }
@@ -314,6 +317,10 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
           }
         }
 
+        const isTeacherCursor = cursor.role === 'teacher';
+        const dotColor = isTeacherCursor ? '#6366f1' : cursor.color;
+        const label = isTeacherCursor ? `${cursor.userName} (Teacher)` : cursor.userName;
+
         const DOT_RADIUS = 5;
         ctx.save();
 
@@ -324,34 +331,31 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
 
         ctx.beginPath();
         ctx.arc(cx, cy, DOT_RADIUS, 0, 2 * Math.PI);
-        ctx.fillStyle = cursor.color;
+        ctx.fillStyle = dotColor;
         ctx.fill();
 
-        if (cursor.numWriters > 1) {
-          const label = cursor.userName;
-          const camera = editor?.getCamera();
-          const zoom = camera?.z ?? 1;
-          const fontSize = Math.max(10, Math.min(14, 12 / zoom));
-          ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+        const camera = editor?.getCamera();
+        const zoom = camera?.z ?? 1;
+        const fontSize = Math.max(10, Math.min(14, 12 / zoom));
+        ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
 
-          const textWidth = ctx.measureText(label).width;
-          const pillPadX = 6 / zoom;
-          const pillPadY = 3 / zoom;
-          const pillH = fontSize + pillPadY * 2;
-          const pillW = textWidth + pillPadX * 2;
-          const pillX = cx + (DOT_RADIUS + 2) / zoom;
-          const pillY = cy - pillH / 2;
-          const radius = 4 / zoom;
+        const textWidth = ctx.measureText(label).width;
+        const pillPadX = 6 / zoom;
+        const pillPadY = 3 / zoom;
+        const pillH = fontSize + pillPadY * 2;
+        const pillW = textWidth + pillPadX * 2;
+        const pillX = cx + (DOT_RADIUS + 2) / zoom;
+        const pillY = cy - pillH / 2;
+        const radius = 4 / zoom;
 
-          ctx.beginPath();
-          ctx.roundRect(pillX, pillY, pillW, pillH, radius);
-          ctx.fillStyle = cursor.color;
-          ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(pillX, pillY, pillW, pillH, radius);
+        ctx.fillStyle = dotColor;
+        ctx.fill();
 
-          ctx.fillStyle = '#ffffff';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(label, pillX + pillPadX, pillY + pillH / 2);
-        }
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, pillX + pillPadX, pillY + pillH / 2);
 
         ctx.restore();
       });

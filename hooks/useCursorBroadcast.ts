@@ -6,6 +6,7 @@ interface UseCursorBroadcastProps {
   localParticipant: any;
   isWritable: boolean;
   userName: string;
+  isTeacher: boolean;
 }
 
 /**
@@ -17,9 +18,12 @@ export function useCursorBroadcast({
   localParticipant,
   isWritable,
   userName,
+  isTeacher,
 }: UseCursorBroadcastProps) {
   const userNameRef = useRef(userName);
-  userNameRef.current = userName;
+  useEffect(() => {
+    userNameRef.current = userName;
+  }, [userName]);
 
   useEffect(() => {
     if (!editor || !localParticipant || !isWritable) return;
@@ -42,6 +46,7 @@ export function useCursorBroadcast({
         x: point.x,
         y: point.y,
         numWriters,
+        role: isTeacher ? 'teacher' : 'student',
       });
 
       // Fire-and-forget, lossy — highest frequency message
@@ -52,5 +57,5 @@ export function useCursorBroadcast({
     return () => {
       editor.off('event', handleEvent);
     };
-  }, [editor, localParticipant, isWritable]);
+  }, [editor, localParticipant, isWritable, isTeacher]);
 }
