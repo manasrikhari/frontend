@@ -19,7 +19,7 @@ export default function WhiteboardPageControls({ editor, isTeacher }: Whiteboard
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       setDragOffset({
@@ -28,21 +28,21 @@ export default function WhiteboardPageControls({ editor, isTeacher }: Whiteboard
       });
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setIsDragging(false);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [isDragging]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('label') || target.closest('input')) {
       return;
@@ -92,8 +92,9 @@ export default function WhiteboardPageControls({ editor, isTeacher }: Whiteboard
       className="absolute bottom-6 left-6 z-[999] flex items-center gap-3 bg-[#e4e4eb] border border-zinc-300 p-2 rounded-2xl shadow-md select-none"
     >
       <div 
-        onMouseDown={handleMouseDown}
-        className="flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-wider uppercase text-zinc-500 pl-1.5 pr-2.5 border-r border-zinc-300 h-6 select-none cursor-grab active:cursor-grabbing"
+        onPointerDown={handlePointerDown}
+        style={{ touchAction: 'none' }}
+        className="flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-wider uppercase text-zinc-500 pl-1.5 pr-2.5 border-r border-zinc-300 h-6 select-none cursor-grab active:cursor-grabbing touch-none"
         title="Drag to reposition"
       >
         <GripVertical className="w-3.5 h-3.5 text-zinc-400" />

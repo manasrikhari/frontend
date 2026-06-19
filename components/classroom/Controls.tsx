@@ -273,22 +273,21 @@ export default function Controls({
         {/* Whiteboard Toggle */}
         <Tooltip
           content={
-            !isWhiteboardAllowed
-              ? "Whiteboard Locked (Requires Teacher Permission)"
-              : showWhiteboard
-              ? "Close Collaborative Whiteboard"
+            showWhiteboard
+              ? !isWhiteboardAllowed
+                ? "Close Whiteboard (Read-Only)"
+                : "Close Collaborative Whiteboard"
+              : !isWhiteboardAllowed
+              ? "Open Whiteboard (Read-Only)"
               : "Open Collaborative Whiteboard"
           }
         >
           <button
-            disabled={!isWhiteboardAllowed}
             onClick={toggleWhiteboard}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative ${
-              !isWhiteboardAllowed
-                ? "bg-zinc-800/40 text-zinc-600 border border-white/5 cursor-not-allowed opacity-50"
-                : showWhiteboard
-                ? "bg-primary hover:bg-primary-hover text-white cursor-pointer"
-                : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE] cursor-pointer"
+            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative cursor-pointer ${
+              showWhiteboard
+                ? "bg-primary hover:bg-primary-hover text-white"
+                : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]"
             }`}
           >
             <svg
@@ -382,7 +381,7 @@ export default function Controls({
               </defs>
             </svg>
             {!isWhiteboardAllowed && (
-              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
+              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
                 <Lock className="w-3 h-3" />
               </div>
             )}

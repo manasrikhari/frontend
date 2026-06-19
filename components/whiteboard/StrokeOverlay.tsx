@@ -41,7 +41,10 @@ interface ActiveEraser {
 interface RemoteCursor {
   userId: string;
   userName: string;
-  positions: { x: number; y: number; arrivedAt: number }[];
+  targetX?: number;
+  targetY?: number;
+  x?: number;
+  y?: number;
   color: string;
   lastSeen: number;
   numWriters: number;
@@ -77,6 +80,7 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
   const strokesRef = useRef<Map<string, ActiveStroke>>(new Map());
   const erasersRef = useRef<Map<string, ActiveEraser>>(new Map());
   const cursorsRef = useRef<Map<string, RemoteCursor>>(new Map());
+  const lastFrameTimeRef = useRef<number>(0);
 
   // ─── Subscribe to LiveKit data events ──────────────────────────────────────
   useEffect(() => {
@@ -104,7 +108,8 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
 
         const existing = cursorsRef.current.get(msg.userId);
         if (existing) {
-          existing.positions.push({ x: msg.x, y: msg.y, arrivedAt: now });
+          existing.targetX = msg.x;
+          existing.targetY = msg.y;
           existing.lastSeen = now;
           existing.numWriters = msg.numWriters;
           existing.userName = msg.userName;
@@ -113,7 +118,10 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
           cursorsRef.current.set(msg.userId, {
             userId: msg.userId,
             userName: msg.userName,
-            positions: [{ x: msg.x, y: msg.y, arrivedAt: now }],
+            targetX: msg.x,
+            targetY: msg.y,
+            x: msg.x,
+            y: msg.y,
             color: getColorForId(msg.userId),
             lastSeen: now,
             numWriters: msg.numWriters,
@@ -191,6 +199,14 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
         return;
       }
 
+      const now = Date.now();
+      const lastTime = lastFrameTimeRef.current || now;
+      lastFrameTimeRef.current = now;
+      const elapsedSeconds = Math.max(0.001, Math.min(0.1, (now - lastTime) / 1000));
+      
+      const lerpSpeed = 15;
+      const lerpFactor = 1 - Math.exp(-lerpSpeed * elapsedSeconds);
+
       // Sync canvas size with DPR
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (rect) {
@@ -220,8 +236,6 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
           ctx.translate(camera.x, camera.y);
         }
       }
-
-      const now = Date.now();
 
       // 1. Render Active Strokes
       strokesRef.current.forEach((stroke, strokeId) => {
@@ -288,34 +302,19 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
           return;
         }
 
-        const playbackTime = now - PLAYOUT_DELAY_MS;
-        const positions = cursor.positions;
-
-        while (positions.length > 2 && positions[1].arrivedAt <= playbackTime) {
-          positions.shift();
-        }
-
-        let cx: number;
-        let cy: number;
-
-        if (positions.length === 0) return;
-
-        if (positions.length === 1 || positions[0].arrivedAt >= playbackTime) {
-          cx = positions[0].x;
-          cy = positions[0].y;
-        } else {
-          const p1 = positions[0];
-          const p2 = positions[1];
-          const dt = p2.arrivedAt - p1.arrivedAt;
-          if (dt <= 0) {
-            cx = p2.x;
-            cy = p2.y;
+        // Lerp towards target position
+        if (cursor.targetX !== undefined && cursor.targetY !== undefined) {
+          if (cursor.x === undefined || cursor.y === undefined) {
+            cursor.x = cursor.targetX;
+            cursor.y = cursor.targetY;
           } else {
-            const ratio = Math.max(0, Math.min(1, (playbackTime - p1.arrivedAt) / dt));
-            cx = p1.x + (p2.x - p1.x) * ratio;
-            cy = p1.y + (p2.y - p1.y) * ratio;
+            cursor.x = cursor.x + (cursor.targetX - cursor.x) * lerpFactor;
+            cursor.y = cursor.y + (cursor.targetY - cursor.y) * lerpFactor;
           }
         }
+
+        const cx = cursor.x ?? cursor.targetX ?? 0;
+        const cy = cursor.y ?? cursor.targetY ?? 0;
 
         const isTeacherCursor = cursor.role === 'teacher';
         const dotColor = isTeacherCursor ? '#6366f1' : cursor.color;
@@ -370,7 +369,7 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none z-[10] w-full h-full"
+      className="absolute inset-0 pointer-events-none z-[900] w-full h-full"
     />
   );
 }

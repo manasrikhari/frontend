@@ -82,13 +82,16 @@ function CustomMainMenu() {
   );
 }
 
-// Custom components to hide native PageMenu and apply CustomMainMenu
+// Custom components to hide native PageMenu, MainMenu, SharePanel, PeopleMenu, and HelperButtons
 const whiteboardComponents = {
   PageMenu: null,
   MainMenu: CustomMainMenu,
+  SharePanel: null,
+  PeopleMenu: null,
+  HelperButtons: null,
 };
 
-// Custom overrides to remove export, copy-as, upload-media, and insert-embed actions
+// Custom overrides to remove export, copy-as, upload-media, insert-embed actions, and toggle-focus-mode action
 const whiteboardOverrides = {
   actions: (editor: any, actions: any) => {
     const newActions = { ...actions };
@@ -100,6 +103,7 @@ const whiteboardOverrides = {
     delete newActions['export-as-json'];
     delete newActions['upload-media'];
     delete newActions['insert-embed'];
+    delete newActions['toggle-focus-mode'];
     return newActions;
   },
 };
@@ -123,6 +127,7 @@ export default function Whiteboard({
 
   const localParticipantRef = useRef(localParticipant);
   const isTeacherRef = useRef(isTeacher);
+  const isWritableRef = useRef(isWritable);
 
   // Keep refs up-to-date
   useEffect(() => {
@@ -133,8 +138,19 @@ export default function Whiteboard({
     isTeacherRef.current = isTeacher;
   }, [isTeacher]);
 
+  useEffect(() => {
+    isWritableRef.current = isWritable;
+  }, [isWritable]);
+
   const handleMount = useCallback((editorInstance: any) => {
     setEditor(editorInstance);
+
+    // Default to Hand tool and clear active selections if student starts in read-only mode
+    const targetWritable = isTeacherRef.current || isWritableRef.current;
+    if (!targetWritable) {
+      editorInstance.setCurrentTool('hand');
+      editorInstance.selectNone();
+    }
 
     // Register side effects for shape permission & ownership
     editorInstance.sideEffects.registerBeforeCreateHandler('shape', (shape: any, source: any) => {
@@ -298,12 +314,16 @@ export default function Whiteboard({
     };
   }, [editor]);
 
-  // Set the user name in Tldraw preferences
+  // Set the user name and keyboard shortcut preferences in Tldraw
   useEffect(() => {
     if (!editor || !userName) return;
     const nameToSet = isTeacher ? `${userName} (Teacher)` : userName;
-    editor.user.updateUserPreferences({ name: nameToSet });
-  }, [editor, userName, isTeacher]);
+    const targetWritable = isTeacher || isWritable;
+    editor.user.updateUserPreferences({
+      name: nameToSet,
+      areKeyboardShortcutsEnabled: targetWritable,
+    });
+  }, [editor, userName, isTeacher, isWritable]);
 
   // Enforce read-only and focus modes based on permissions
   const lastAppliedWritable = useRef<boolean | null>(null);
@@ -315,6 +335,13 @@ export default function Whiteboard({
         isReadonly: !targetWritable,
         isFocusMode: !targetWritable,
       });
+
+      // Lock read-only students to Hand tool and clear any active selections
+      if (!targetWritable) {
+        editor.setCurrentTool('hand');
+        editor.selectNone();
+      }
+
       lastAppliedWritable.current = targetWritable;
     }
   }, [editor, isTeacher, isWritable]);
@@ -442,6 +469,46 @@ export default function Whiteboard({
     };
   }, [editor]);
 
+  // Enforce shape selection permissions:
+  // 1. Read-only students cannot select any shapes on the whiteboard.
+  // 2. Editor students can only select shapes they created (cannot select teacher's drawings).
+  useEffect(() => {
+    if (!editor) return;
+
+    const cleanupSelection = editor.store.listen((event: any) => {
+      if (event.source === 'user') {
+        if (isTeacherRef.current) return;
+
+        const selectedIds = editor.getSelectedShapeIds();
+        if (selectedIds.length === 0) return;
+
+        const targetWritable = isTeacherRef.current || isWritableRef.current;
+        if (!targetWritable) {
+          editor.selectNone();
+          return;
+        }
+
+        const myIdentity = localParticipantRef.current?.identity || 'unknown';
+        const allowedIds = selectedIds.filter((id: string) => {
+          const shape = editor.getShape(id);
+          return shape && shape.meta?.createdBy === myIdentity;
+        });
+
+        if (allowedIds.length !== selectedIds.length) {
+          if (allowedIds.length === 0) {
+            editor.selectNone();
+          } else {
+            editor.select(...allowedIds);
+          }
+        }
+      }
+    }, { scope: 'session' });
+
+    return () => {
+      cleanupSelection();
+    };
+  }, [editor]);
+
   // Capture active writer coordinates (teacher or writable students)
   useStrokeCapture({ editor, localParticipant, isWritable });
   useCursorBroadcast({ editor, localParticipant, isWritable, userName: userName || 'Participant', isTeacher });
@@ -455,6 +522,19 @@ export default function Whiteboard({
         overrides={whiteboardOverrides}
         overlayUtils={[HiddenCollaboratorCursorOverlayUtil, HiddenCollaboratorHintOverlayUtil]}
       />
+
+      {/* Read-Only Mode Status Badge for Students */}
+      {!isTeacher && !isWritable && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[999] pointer-events-none select-none animate-in fade-in duration-200">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0c101d]/90 border border-amber-500/30 text-amber-500 backdrop-blur-md rounded-full text-xs font-semibold shadow-lg">
+            <svg className="w-3.5 h-3.5 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+            <span>Read-Only View</span>
+          </div>
+        </div>
+      )}
 
       {/* Stroke Overlay Canvas */}
       <StrokeOverlay 
