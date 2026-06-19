@@ -186,6 +186,13 @@ export default function Whiteboard({
     });
 
     editorInstance.sideEffects.registerBeforeDeleteHandler('shape', (shape: any, source: any) => {
+      // Prevent eraser tool from deleting images or frames
+      if (editorInstance.getCurrentToolId() === 'eraser') {
+        if (shape.type === 'image' || shape.type === 'frame') {
+          return false;
+        }
+      }
+
       if (source === 'remote') {
         return true;
       }
@@ -569,15 +576,6 @@ function EmptyWhiteboardOverlay({ editor, isTeacher }: { editor: any; isTeacher:
     checkEmpty();
 
     const cleanup = editor.store.listen((event: any) => {
-      const hasAddedFrame = event.changes.added && 
-        Object.values(event.changes.added).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
-      const hasRemovedFrame = event.changes.removed && 
-        Object.values(event.changes.removed).some((s: any) => s.typeName === 'shape' && s.type === 'frame');
-
-      if (!hasAddedFrame && !hasRemovedFrame) {
-        return;
-      }
-
       checkEmpty();
     }, { scope: 'document' });
 

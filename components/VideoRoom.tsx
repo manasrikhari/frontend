@@ -97,6 +97,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [globalScreenShareAllowed, setGlobalScreenShareAllowed] = useState(false);
   const [allowedWhiteboardStudents, setAllowedWhiteboardStudents] = useState<Record<string, boolean>>({});
   const [allowedScreenShareStudents, setAllowedScreenShareStudents] = useState<Record<string, boolean>>({});
+  const [teacherAbsentTimeLeft, setTeacherAbsentTimeLeft] = useState<number | null>(null);
   const participants = useParticipants();
 
   // Auto-disconnect student if teacher is not present in the room
@@ -105,14 +106,28 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   }, [participants]);
 
   useEffect(() => {
-    if (isTeacher || connectionState !== 'connected') return;
+    if (isTeacher || connectionState !== 'connected') {
+      setTeacherAbsentTimeLeft(null);
+      return;
+    }
 
     if (!hasTeacher) {
-      const timer = setTimeout(() => {
-        alert("The teacher is not in the meeting. You will be redirected to the dashboard.");
-        onLeave();
-      }, 7000); // 7 seconds grace period to allow for transient refreshes or load times
-      return () => clearTimeout(timer);
+      setTeacherAbsentTimeLeft(600); // 10 minutes (600 seconds)
+      const interval = setInterval(() => {
+        setTeacherAbsentTimeLeft((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(interval);
+            alert("The teacher is not in the meeting. You will be redirected to the dashboard.");
+            onLeave();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    } else {
+      setTeacherAbsentTimeLeft(null);
     }
   }, [isTeacher, hasTeacher, connectionState, onLeave]);
 
@@ -257,24 +272,29 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         }
 
         // Check bounds
-        const shapeBounds = editorInstance.getShapePageBounds(shape.id);
-        if (!shapeBounds) return false;
+        try {
+          const shapeBounds = editorInstance.getShapePageBounds(shape.id);
+          if (!shapeBounds) return false;
 
-        const shapeCenter = {
-          x: shapeBounds.x + shapeBounds.w / 2,
-          y: shapeBounds.y + shapeBounds.h / 2,
-        };
+          const shapeCenter = {
+            x: shapeBounds.x + shapeBounds.w / 2,
+            y: shapeBounds.y + shapeBounds.h / 2,
+          };
 
-        // See if center is inside any frame
-        for (const fb of cachedFramesBounds) {
-          if (
-            shapeCenter.x >= fb.x &&
-            shapeCenter.x <= fb.x + fb.w &&
-            shapeCenter.y >= fb.y &&
-            shapeCenter.y <= fb.y + fb.h
-          ) {
-            return true;
+          // See if center is inside any frame
+          for (const fb of cachedFramesBounds) {
+            if (
+              shapeCenter.x >= fb.x &&
+              shapeCenter.x <= fb.x + fb.w &&
+              shapeCenter.y >= fb.y &&
+              shapeCenter.y <= fb.y + fb.h
+            ) {
+              return true;
+            }
           }
+        } catch (e) {
+          // If shape is not fully initialized in layout, assume it is inside/valid for now
+          return true;
         }
 
         return false;
@@ -284,8 +304,10 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       if (event.changes.added) {
         const shapesToDelete: string[] = [];
         Object.values(event.changes.added).forEach((shape: any) => {
-          if (!isShapeInsideAnyFrame(shape)) {
-            shapesToDelete.push(shape.id);
+          if (shape.typeName === 'shape') {
+            if (!isShapeInsideAnyFrame(shape)) {
+              shapesToDelete.push(shape.id);
+            }
           }
         });
 
@@ -890,6 +912,27 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             isFocusMode={isFocusMode}
             showSplitLayout={showSplitLayout}
           />
+
+          {teacherAbsentTimeLeft !== null && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[50] w-full max-w-lg px-4">
+              <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
+                    <span className="text-[10px] text-amber-200/70">
+                      {teacherAbsentTimeLeft > 180
+                        ? "Waiting for them to rejoin..."
+                        : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
           <div className={`w-full h-full bg-white ${showWhiteboard ? 'relative block' : 'absolute inset-0 opacity-0 pointer-events-none'}`}>

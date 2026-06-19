@@ -300,10 +300,10 @@ function HomeContent() {
 
   // Redirect authenticated main domain users to dashboard
   useEffect(() => {
-    if (!isClassroomMode && !isLoading && user) {
+    if (tokenResolved && !isClassroomMode && !isLoading && user) {
       router.push('/dashboard');
     }
-  }, [user, isLoading, isClassroomMode, router]);
+  }, [user, isLoading, isClassroomMode, tokenResolved, router]);
 
   const redirectToLMS = () => {
     let lmsDashboardUrl = process.env.NEXT_PUBLIC_LMS_URL || '/dashboard';
