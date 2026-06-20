@@ -91,6 +91,7 @@ const whiteboardComponents = {
   SharePanel: null,
   PeopleMenu: null,
   HelperButtons: null,
+  Toasts: null,
 };
 
 // Custom overrides to remove export, copy-as, upload-media, insert-embed actions, and toggle-focus-mode action
@@ -709,13 +710,7 @@ function ResumeFollowingButton({
           setIsFollowingTeacher(true);
         }
       }}
-      className={`absolute right-6 z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-300 border border-primary/20 md:bottom-6 md:right-6 ${
-        isMobile
-          ? isSidebarOpen
-            ? "bottom-[180px]"
-            : "bottom-[56px]"
-          : "bottom-6"
-      }`}
+      className="absolute z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-300 border border-primary/20 bottom-4 right-4 md:bottom-6 md:right-6"
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

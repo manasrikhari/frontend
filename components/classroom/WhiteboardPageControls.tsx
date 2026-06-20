@@ -91,7 +91,7 @@ export default function WhiteboardPageControls({ editor, isTeacher, isWritable }
       style={{
         transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
       }}
-      className="absolute bottom-6 left-6 z-[999] flex items-center gap-3 bg-[#e4e4eb] border border-zinc-300 p-2 rounded-2xl shadow-md select-none"
+      className="absolute bottom-4 left-4 md:bottom-6 md:left-6 z-[999] flex items-center gap-3 bg-[#e4e4eb] border border-zinc-300 p-2 rounded-2xl shadow-md select-none"
     >
       <div 
         onPointerDown={handlePointerDown}

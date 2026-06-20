@@ -21,6 +21,7 @@ export default function FloatingTeacherTile({
   const tileRef = useRef<HTMLDivElement>(null);
 
   const hasBeenPositioned = useRef(false);
+  const hasMoved = useRef(false);
 
   // Reset visibility when focus mode becomes active
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function FloatingTeacherTile({
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    hasMoved.current = false;
     const tile = tileRef.current;
     if (!tile) return;
     tile.setPointerCapture(e.pointerId);
@@ -81,6 +83,10 @@ export default function FloatingTeacherTile({
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
+    
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasMoved.current = true;
+    }
     
     let newX = dragRef.current.posX + dx;
     let newY = dragRef.current.posY + dy;
@@ -114,6 +120,12 @@ export default function FloatingTeacherTile({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onClick={(e) => {
+        if (hasMoved.current) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
       style={{
         position: 'absolute',
         left: `${position.x}px`,
@@ -121,7 +133,7 @@ export default function FloatingTeacherTile({
         zIndex: 250,
         touchAction: 'none',
       }}
-      className="w-40 md:w-52 lg:w-64 aspect-video rounded-xl overflow-hidden border border-[#6366f1]/30 bg-[#111827]/80 backdrop-blur-md shadow-2xl cursor-grab active:cursor-grabbing select-none group"
+      className="w-40 md:w-52 lg:w-64 aspect-video rounded-xl overflow-hidden border border-[#6366f1]/30 bg-[#111827]/80 backdrop-blur-md shadow-2xl cursor-grab active:cursor-grabbing select-none group floating-teacher-tile"
     >
       {/* Close button to hide tile temporarily */}
       <button

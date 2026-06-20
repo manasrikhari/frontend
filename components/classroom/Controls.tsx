@@ -27,6 +27,9 @@ interface ControlsProps {
   layoutMode: 'auto' | 'tiled' | 'spotlight' | 'sidebar' | 'focus';
   setLayoutMode: (mode: 'auto' | 'tiled' | 'spotlight' | 'sidebar' | 'focus') => void;
   showSplitLayout: boolean;
+  isMobile?: boolean;
+  mobileControlsVisible?: boolean;
+  onHideControls?: () => void;
 }
 
 export default function Controls({
@@ -51,6 +54,9 @@ export default function Controls({
   layoutMode,
   setLayoutMode,
   showSplitLayout,
+  isMobile = false,
+  mobileControlsVisible = true,
+  onHideControls,
 }: ControlsProps) {
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
@@ -156,9 +162,30 @@ export default function Controls({
   }, [showDeviceSettings]);
 
   return (
-    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-center md:justify-between relative z-[999999] select-none">
+    <div 
+      onClick={(e) => {
+        if (!isMobile) return;
+        const target = e.target as HTMLElement;
+        if (
+          target.closest('button') ||
+          target.closest('input') ||
+          target.closest('select') ||
+          target.closest('textarea') ||
+          target.closest('[role="button"]') ||
+          target.closest('a')
+        ) {
+          return;
+        }
+        onHideControls?.();
+      }}
+      className={`w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-center ${isMobile ? '' : 'md:justify-between'} z-[999999] select-none transition-all duration-300 controls-bar ${
+        isMobile 
+          ? `fixed bottom-0 left-0 right-0 ${mobileControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`
+          : 'relative translate-y-0 opacity-100'
+      }`}
+    >
       {/* Left side: Class details & time */}
-      <div className="hidden md:flex flex-col min-w-[120px] lg:min-w-[200px]">
+      <div className={`${isMobile ? 'hidden' : 'hidden md:flex'} flex-col min-w-[120px] lg:min-w-[200px]`}>
         <span className="font-bold text-sm text-white tracking-wider">
           OpenGrapes Live
         </span>
@@ -267,7 +294,7 @@ export default function Controls({
         </Tooltip>
 
         {/* Screen Share Toggle */}
-        <div className="hidden md:block">
+        <div className={isMobile ? 'hidden' : 'hidden md:block'}>
           <Tooltip
             content={
               !isScreenShareAllowed
@@ -329,7 +356,7 @@ export default function Controls({
         </div>
 
         {/* Whiteboard Toggle */}
-        <div className="hidden md:block">
+        <div className={isMobile ? 'hidden' : 'hidden md:block'}>
           <Tooltip
             content={
               showWhiteboard
@@ -622,7 +649,7 @@ export default function Controls({
           {showDeviceSettings && (
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150">
               {/* Mobile-only: Screen Share, Whiteboard, Chat, and Participants options */}
-              <div className="md:hidden flex flex-col gap-1 border-b border-white/5 pb-1 mb-1">
+              <div className={`${isMobile ? 'flex' : 'md:hidden'} flex-col gap-1 border-b border-white/5 pb-1 mb-1`}>
                 {/* Screen Share */}
                 <button
                   disabled={!isScreenShareAllowed}
@@ -1072,7 +1099,7 @@ export default function Controls({
       </div>
 
       {/* Right side: Sidebar toggles */}
-      <div className="hidden md:flex items-center gap-3 min-w-[120px] lg:min-w-[200px] justify-end">
+      <div className={`${isMobile ? 'hidden' : 'hidden md:flex'} items-center gap-3 min-w-[120px] lg:min-w-[200px] justify-end`}>
         {/* Chat Toggle */}
         <Tooltip
           content={activeRightPanelTab === "chat" ? "Hide Chat" : "Show Chat"}

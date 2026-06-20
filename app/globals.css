@@ -204,6 +204,22 @@ body {
   display: none !important;
 }
 
+/* Hide Tldraw watermark branding */
+.tl-watermark,
+.tlui-watermark,
+.tl-watermark_SEE-LICENSE,
+[class*="watermark_SEE-LICENSE"],
+[data-testid="tl-watermark-unlicensed"] {
+  display: none !important;
+}
+
+/* Hide Tldraw toasts (just in case they are rendered elsewhere) */
+.tlui-toast-container,
+.tlui-toast,
+.tlui-toaster {
+  display: none !important;
+}
+
 /* Always show close controls on touch/hoverless devices */
 @media (hover: none) {
   .touch-visible {

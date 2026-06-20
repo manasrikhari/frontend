@@ -34,6 +34,7 @@ interface ChatPanelProps {
   allowedScreenShareStudents?: Record<string, boolean>;
   onToggleGlobalPermission?: (type: 'whiteboard' | 'screenshare') => void;
   onToggleStudentPermission?: (identity: string, type: 'whiteboard' | 'screenshare') => void;
+  isMobile?: boolean;
 }
 
 export default function ChatPanel({
@@ -52,6 +53,7 @@ export default function ChatPanel({
   allowedScreenShareStudents = {},
   onToggleGlobalPermission,
   onToggleStudentPermission,
+  isMobile = false,
 }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
   const [activeDropdownSid, setActiveDropdownSid] = useState<string | null>(null);
@@ -193,9 +195,12 @@ export default function ChatPanel({
   };
 
   return (
-    <aside className="fixed inset-0 w-full h-full z-[999999] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col md:right-0 md:left-auto md:w-80 md:inset-y-0 md:h-full md:border-l md:border-border/30 md:bg-[#090d1a]/95 md:z-50 lg:relative lg:w-80 lg:bg-[#090d1a]/85 lg:backdrop-blur-xl lg:shadow-none lg:z-50">
+    <aside className={isMobile 
+      ? "fixed inset-0 w-full h-full z-[999999] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col"
+      : "fixed inset-0 w-full h-full z-[999999] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col md:right-0 md:left-auto md:w-80 md:inset-y-0 md:h-full md:border-l md:border-border/30 md:bg-[#090d1a]/95 md:z-50 lg:relative lg:w-80 lg:bg-[#090d1a]/85 lg:backdrop-blur-xl lg:shadow-none lg:z-50"
+    }>
       {/* Mobile-only Google Meet Header */}
-      <div className="md:hidden h-14 border-b border-border/20 flex items-center justify-between px-4 bg-surface/30">
+      <div className={`${isMobile ? 'flex' : 'md:hidden'} h-14 border-b border-border/20 flex items-center justify-between px-4 bg-surface/30`}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab(null)}
@@ -211,7 +216,7 @@ export default function ChatPanel({
       </div>
 
       {/* Mobile-only Tab Selector Bar */}
-      <div className="md:hidden flex border-b border-border/10 bg-surface/10">
+      <div className={`${isMobile ? 'flex' : 'md:hidden'} border-b border-border/10 bg-surface/10`}>
         <button
           onClick={() => setActiveTab('chat')}
           type="button"
@@ -237,7 +242,7 @@ export default function ChatPanel({
       </div>
 
       {/* Desktop/Tablet Header */}
-      <div className="hidden md:flex h-16 border-b border-border/30 items-center justify-between px-4 bg-surface/30">
+      <div className={`${isMobile ? 'hidden' : 'hidden md:flex'} h-16 border-b border-border/30 items-center justify-between px-4 bg-surface/30`}>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveTab('chat')}
