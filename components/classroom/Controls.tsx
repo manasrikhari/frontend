@@ -124,9 +124,9 @@ export default function Controls({
   }, [showDeviceSettings]);
 
   return (
-    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-6 py-4 flex items-center justify-between relative z-[999999] select-none">
+    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-6 py-4 flex items-center justify-center md:justify-between relative z-[999999] select-none">
       {/* Left side: Class details & time */}
-      <div className="flex flex-col min-w-[200px]">
+      <div className="hidden md:flex flex-col min-w-[200px]">
         <span className="font-bold text-sm text-white uppercase tracking-wider">
           {roomName}
         </span>
@@ -136,7 +136,7 @@ export default function Controls({
       </div>
 
       {/* Center side: Meeting controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         {/* Microphone Toggle */}
         <Tooltip
           content={
@@ -235,182 +235,186 @@ export default function Controls({
         </Tooltip>
 
         {/* Screen Share Toggle */}
-        <Tooltip
-          content={
-            !isScreenShareAllowed
-              ? "Screen Share Locked (Requires Teacher Permission)"
-              : isScreenShareEnabled
-              ? "Stop Screen Share"
-              : "Share Screen"
-          }
-        >
-          <button
-            disabled={!isScreenShareAllowed}
-            onClick={toggleScreenShare}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative ${
+        <div className="hidden md:block">
+          <Tooltip
+            content={
               !isScreenShareAllowed
-                ? "bg-zinc-800/40 text-zinc-600 border border-white/5 cursor-not-allowed opacity-50"
+                ? "Screen Share Locked (Requires Teacher Permission)"
                 : isScreenShareEnabled
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
-                : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE] cursor-pointer"
-            }`}
+                ? "Stop Screen Share"
+                : "Share Screen"
+            }
           >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
+            <button
+              disabled={!isScreenShareAllowed}
+              onClick={toggleScreenShare}
+              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative ${
+                !isScreenShareAllowed
+                  ? "bg-zinc-800/40 text-zinc-600 border border-white/5 cursor-not-allowed opacity-50"
+                  : isScreenShareEnabled
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
+                  : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE] cursor-pointer"
+              }`}
             >
-              <path
-                d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {!isScreenShareAllowed && (
-              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                <Lock className="w-3 h-3" />
-              </div>
-            )}
-          </button>
-        </Tooltip>
+              <svg
+                className="w-8 h-8"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1}
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
+                  fill="currentColor"
+                  fillOpacity={0.25}
+                  stroke="none"
+                />
+                <path
+                  d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z"
+                  fill="currentColor"
+                  fillOpacity={0.25}
+                  stroke="none"
+                />
+                <path
+                  d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {!isScreenShareAllowed && (
+                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
+                  <Lock className="w-3 h-3" />
+                </div>
+              )}
+            </button>
+          </Tooltip>
+        </div>
 
         {/* Whiteboard Toggle */}
-        <Tooltip
-          content={
-            showWhiteboard
-              ? !isWhiteboardAllowed
-                ? "Close Whiteboard (Read-Only)"
-                : "Close Collaborative Whiteboard"
-              : !isWhiteboardAllowed
-              ? "Open Whiteboard (Read-Only)"
-              : "Open Collaborative Whiteboard"
-          }
-        >
-          <button
-            onClick={toggleWhiteboard}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative cursor-pointer ${
+        <div className="hidden md:block">
+          <Tooltip
+            content={
               showWhiteboard
-                ? "bg-primary hover:bg-primary-hover text-white"
-                : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]"
-            }`}
+                ? !isWhiteboardAllowed
+                  ? "Close Whiteboard (Read-Only)"
+                  : "Close Collaborative Whiteboard"
+                : !isWhiteboardAllowed
+                ? "Open Whiteboard (Read-Only)"
+                : "Open Collaborative Whiteboard"
+            }
           >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 25"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
+            <button
+              onClick={toggleWhiteboard}
+              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative cursor-pointer ${
+                showWhiteboard
+                  ? "bg-primary hover:bg-primary-hover text-white"
+                  : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]"
+              }`}
             >
-              <path
-                d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <g filter="url(#filter0_d_5_489)">
+              <svg
+                className="w-8 h-8"
+                viewBox="0 0 24 25"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1}
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <path
-                  d="M12.8077 6.46792C13.4209 5.67466 14.5913 5.60007 15.3003 6.30905C16.0092 7.01795 15.9347 8.18816 15.1416 8.80146L11.3602 11.7258C11.2889 11.7809 11.1879 11.7744 11.1242 11.7108L9.89915 10.4857C9.83548 10.422 9.82904 10.321 9.88411 10.2497L12.8077 6.46792Z"
+                  d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z"
+                  fill="currentColor"
+                  fillOpacity={0.25}
+                  stroke="none"
+                />
+                <path
+                  d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                <path
-                  d="M11.8477 11.0978L10.5112 9.76138"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M9.90984 10.4964L11.1126 11.6992C11.1544 11.741 11.1725 11.8008 11.1609 11.8587L11.0203 12.5617C10.9123 13.1017 10.5201 13.5407 9.99563 13.7085L7.77427 14.4193C7.60846 14.4724 7.4269 14.4284 7.3038 14.3053C7.18069 14.1821 7.13668 14.0006 7.18974 13.8348L7.90057 11.6134C8.06839 11.089 8.50736 10.6967 9.04731 10.5887L9.75035 10.4481C9.80824 10.4366 9.86809 10.4547 9.90984 10.4964Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M7.3038 14.3052L9.04117 12.5679"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M8.94331 12.2028C8.868 12.4838 9.1252 12.741 9.40627 12.6657V12.6657C9.68734 12.5904 9.78148 12.2391 9.57572 12.0333V12.0333C9.36996 11.8276 9.01863 11.9217 8.94331 12.2028V12.2028Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M7.04752 15.84H9.09634C9.38875 15.84 9.67211 15.7386 9.89813 15.5531L10.4936 15.0644C10.6135 14.9659 10.7863 14.9659 10.9063 15.0644L11.5024 15.5537C11.728 15.7388 12.0108 15.84 12.3026 15.84H12.4144C12.8797 15.84 13.2948 15.5478 13.4519 15.1099L14.4046 12.4537C14.4332 12.3742 14.5456 12.3742 14.5741 12.4537L15.3899 14.7281C15.6292 15.3951 16.2614 15.84 16.97 15.84H17.1275"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </g>
-              <defs>
-                <filter
-                  id="filter0_d_5_489"
-                  x="1.70001"
-                  y="4.5"
-                  width="20.6"
-                  height="20.6"
-                  filterUnits="userSpaceOnUse"
-                  colorInterpolationFilters="sRGB"
-                >
-                  <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                  <feColorMatrix
-                    in="SourceAlpha"
-                    type="matrix"
-                    values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                    result="hardAlpha"
+                <g filter="url(#filter0_d_5_489)">
+                  <path
+                    d="M12.8077 6.46792C13.4209 5.67466 14.5913 5.60007 15.3003 6.30905C16.0092 7.01795 15.9347 8.18816 15.1416 8.80146L11.3602 11.7258C11.2889 11.7809 11.1879 11.7744 11.1242 11.7108L9.89915 10.4857C9.83548 10.422 9.82904 10.321 9.88411 10.2497L12.8077 6.46792Z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                  <feOffset dy={4} />
-                  <feGaussianBlur stdDeviation={2} />
-                  <feComposite in2="hardAlpha" operator="out" />
-                  <feColorMatrix
-                    type="matrix"
-                    values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
+                  <path
+                    d="M11.8477 11.0978L10.5112 9.76138"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                  <feBlend
-                    mode="normal"
-                    in2="BackgroundImageFix"
-                    result="effect1_dropShadow_5_489"
+                  <path
+                    d="M9.90984 10.4964L11.1126 11.6992C11.1544 11.741 11.1725 11.8008 11.1609 11.8587L11.0203 12.5617C10.9123 13.1017 10.5201 13.5407 9.99563 13.7085L7.77427 14.4193C7.60846 14.4724 7.4269 14.4284 7.3038 14.3053C7.18069 14.1821 7.13668 14.0006 7.18974 13.8348L7.90057 11.6134C8.06839 11.089 8.50736 10.6967 9.04731 10.5887L9.75035 10.4481C9.80824 10.4366 9.86809 10.4547 9.90984 10.4964Z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                  <feBlend
-                    mode="normal"
-                    in="SourceGraphic"
-                    in2="effect1_dropShadow_5_489"
-                    result="shape"
+                  <path
+                    d="M7.3038 14.3052L9.04117 12.5679"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                </filter>
-              </defs>
-            </svg>
-            {!isWhiteboardAllowed && (
-              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                <Lock className="w-3 h-3" />
-              </div>
-            )}
-          </button>
-        </Tooltip>
+                  <path
+                    d="M8.94331 12.2028C8.868 12.4838 9.1252 12.741 9.40627 12.6657V12.6657C9.68734 12.5904 9.78148 12.2391 9.57572 12.0333V12.0333C9.36996 11.8276 9.01863 11.9217 8.94331 12.2028V12.2028Z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7.04752 15.84H9.09634C9.38875 15.84 9.67211 15.7386 9.89813 15.5531L10.4936 15.0644C10.6135 14.9659 10.7863 14.9659 10.9063 15.0644L11.5024 15.5537C11.728 15.7388 12.0108 15.84 12.3026 15.84H12.4144C12.8797 15.84 13.2948 15.5478 13.4519 15.1099L14.4046 12.4537C14.4332 12.3742 14.5456 12.3742 14.5741 12.4537L15.3899 14.7281C15.6292 15.3951 16.2614 15.84 16.97 15.84H17.1275"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+                <defs>
+                  <filter
+                    id="filter0_d_5_489"
+                    x="1.70001"
+                    y="4.5"
+                    width="20.6"
+                    height="20.6"
+                    filterUnits="userSpaceOnUse"
+                    colorInterpolationFilters="sRGB"
+                  >
+                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
+                    <feColorMatrix
+                      in="SourceAlpha"
+                      type="matrix"
+                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+                      result="hardAlpha"
+                    />
+                    <feOffset dy={4} />
+                    <feGaussianBlur stdDeviation={2} />
+                    <feComposite in2="hardAlpha" operator="out" />
+                    <feColorMatrix
+                      type="matrix"
+                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"
+                    />
+                    <feBlend
+                      mode="normal"
+                      in2="BackgroundImageFix"
+                      result="effect1_dropShadow_5_489"
+                    />
+                    <feBlend
+                      mode="normal"
+                      in="SourceGraphic"
+                      in2="effect1_dropShadow_5_489"
+                      result="shape"
+                    />
+                  </filter>
+                </defs>
+              </svg>
+              {!isWhiteboardAllowed && (
+                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
+                  <Lock className="w-3 h-3" />
+                </div>
+              )}
+            </button>
+          </Tooltip>
+        </div>
 
         {/* Adjust View Toggle Button */}
         <div ref={layoutMenuRef} className="relative">
@@ -585,8 +589,203 @@ export default function Controls({
           {/* Dropdown Settings Menu */}
           {showDeviceSettings && (
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150">
+              {/* Mobile-only: Screen Share, Whiteboard, Chat, and Participants options */}
+              <div className="md:hidden flex flex-col gap-1 border-b border-white/5 pb-1 mb-1">
+                {/* Screen Share */}
+                <button
+                  disabled={!isScreenShareAllowed}
+                  onClick={() => {
+                    toggleScreenShare();
+                    setShowDeviceSettings(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors text-left text-sm font-semibold select-none ${
+                    !isScreenShareAllowed
+                      ? "opacity-40 cursor-not-allowed text-zinc-600"
+                      : isScreenShareEnabled
+                      ? "text-emerald-400 bg-emerald-500/10 cursor-pointer"
+                      : "text-[#C2CCDE] cursor-pointer"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
+                      fill="currentColor"
+                      fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z"
+                      fill="currentColor"
+                      fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Share Screen</span>
+                </button>
+
+                {/* Whiteboard */}
+                <button
+                  onClick={() => {
+                    toggleWhiteboard();
+                    setShowDeviceSettings(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                    showWhiteboard ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 25"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z"
+                      fill="currentColor"
+                      fillOpacity={showWhiteboard ? 0.4 : 0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Whiteboard</span>
+                </button>
+
+                {/* Chat */}
+                <button
+                  onClick={() => {
+                    setActiveRightPanelTab(
+                      activeRightPanelTab === 'chat' ? null : 'chat'
+                    );
+                    setShowDeviceSettings(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                    activeRightPanelTab === 'chat' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 85 77"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M24 21L56 21"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M24 43H56"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M31 32H63"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M26.5625 11.55C18.9341 11.55 12.75 17.152 12.75 24.0625V41.3875C12.75 47.9741 18.368 53.372 25.5 53.8635V65.45L42.5 53.9H58.4375C66.0659 53.9 72.25 48.2979 72.25 41.3875V24.0625C72.25 17.152 66.0659 11.55 58.4375 11.55H26.5625Z"
+                      fill="currentColor"
+                      fillOpacity={activeRightPanelTab === 'chat' ? 0.4 : 0.25}
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Chat</span>
+                </button>
+
+                {/* Participants */}
+                <button
+                  onClick={() => {
+                    setActiveRightPanelTab(
+                      activeRightPanelTab === 'participants' ? null : 'participants'
+                    );
+                    setShowDeviceSettings(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                    activeRightPanelTab === 'participants' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M7.49006 11.7919C7.37766 12.3267 7.03202 12.7833 6.54775 13.0366C6.01672 13.3143 5.38333 13.3143 4.8523 13.0366C4.36803 12.7833 4.02239 12.3267 3.90999 11.7919L3.87102 11.6065C3.75534 11.0561 3.87948 10.4824 4.21238 10.029L4.27549 9.94309C4.60846 9.48962 5.13744 9.22178 5.70002 9.22178C6.26261 9.22178 6.79158 9.48962 7.12456 9.94309L7.18767 10.029C7.52057 10.4824 7.64471 11.0561 7.52903 11.6065L7.49006 11.7919Z"
+                      fill="currentColor"
+                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M2.40002 16.8399C2.40002 17.1492 2.65075 17.3999 2.96003 17.3999H6.39322C6.61397 16.4192 7.21453 15.5619 8.06255 15.0195C7.90992 14.9106 7.74197 14.8199 7.56123 14.7509L7.43468 14.7026C6.31753 14.2763 5.08252 14.2763 3.96537 14.7026L3.83882 14.7509C2.97243 15.0815 2.40002 15.9126 2.40002 15.9126V16.8399Z"
+                      fill="currentColor"
+                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M21.04 17.4H17.6068C17.3861 16.4193 16.7856 15.5619 15.9375 15.0195C16.0902 14.9107 16.2581 14.8199 16.4388 14.7509L16.5654 14.7027C17.6825 14.2763 18.9175 14.2763 20.0347 14.7027L20.1612 14.7509C21.0276 15.0816 21.6 15.9127 21.6 16.84C21.6 17.1493 21.3493 17.4 21.04 17.4Z"
+                      fill="currentColor"
+                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.51 11.792C16.6224 12.3268 16.968 12.7834 17.4523 13.0366C17.9833 13.3144 18.6167 13.3144 19.1478 13.0366C19.632 12.7834 19.9777 12.3268 20.0901 11.792L20.129 11.6066C20.2447 11.0561 20.1206 10.4825 19.7877 10.0291L19.7246 9.94316C19.3916 9.48969 18.8626 9.22184 18.3 9.22184C17.7374 9.22184 17.2085 9.48969 16.8755 9.94316L16.8124 10.0291C16.4795 10.4825 16.3553 11.0561 16.4795 11.6066L16.51 11.792Z"
+                      fill="currentColor"
+                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>Participants</span>
+                </button>
+              </div>
+
               {/* 1st Option: Device Settings */}
-              <div className="flex flex-col">
+              <div className="flex flex-col text-left">
                 <button
                   onClick={() => setShowDevices(!showDevices)}
                   className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE]"
@@ -841,7 +1040,7 @@ export default function Controls({
       </div>
 
       {/* Right side: Sidebar toggles */}
-      <div className="flex items-center gap-3 min-w-[200px] justify-end">
+      <div className="hidden md:flex items-center gap-3 min-w-[200px] justify-end">
         {/* Chat Toggle */}
         <Tooltip
           content={activeRightPanelTab === "chat" ? "Hide Chat" : "Show Chat"}
