@@ -20,6 +20,8 @@ export default function FloatingTeacherTile({
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
   const tileRef = useRef<HTMLDivElement>(null);
 
+  const hasBeenPositioned = useRef(false);
+
   // Reset visibility when focus mode becomes active
   useEffect(() => {
     if (isFocusMode) {
@@ -29,7 +31,7 @@ export default function FloatingTeacherTile({
 
   // Initialize teacher tile position to bottom right of viewport when it becomes active
   useEffect(() => {
-    if (typeof window !== 'undefined' && isFocusMode && showSplitLayout && teacherTrack) {
+    if (typeof window !== 'undefined' && isFocusMode && showSplitLayout && teacherTrack && !hasBeenPositioned.current) {
       const timer = setTimeout(() => {
         const tile = tileRef.current;
         const tileWidth = tile ? tile.offsetWidth : 256;
@@ -38,6 +40,7 @@ export default function FloatingTeacherTile({
           x: 24,
           y: window.innerHeight - tileHeight - 190,
         });
+        hasBeenPositioned.current = true;
       }, 50);
       return () => clearTimeout(timer);
     }

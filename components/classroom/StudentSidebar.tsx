@@ -44,7 +44,7 @@ function LazyParticipantTile({ trackRef }: { trackRef: TrackReferenceOrPlacehold
   return (
     <div 
       ref={ref} 
-      className="aspect-video w-full relative rounded-xl overflow-hidden border border-white/5 bg-surface-light/10 shadow-md group flex items-center justify-center min-h-[120px]"
+      className="aspect-video w-full relative rounded-xl overflow-hidden border border-white/5 bg-surface-light/10 shadow-md group flex items-center justify-center"
     >
       {isIntersecting ? (
         <ParticipantTile trackRef={trackRef} className="w-full h-full" />
@@ -123,11 +123,10 @@ export default function StudentSidebar({
         <Users className="w-5 h-5" />
       </button>
 
-      {/* 2. Mobile Portrait View (Bottom collapsible tray) */}
       <div 
         className={`md:hidden fixed left-0 right-0 bottom-20 bg-[#090d1a]/95 backdrop-blur-2xl border-t border-white/10 z-[100] transition-all duration-300 ${
-          isOpen ? 'h-[30vh]' : 'h-10'
-        } flex flex-col`}
+          isOpen ? 'h-auto max-h-[200px]' : 'h-10 max-h-10'
+        } flex flex-col overflow-hidden`}
       >
         {/* Toggle bar / pull handle */}
         <div 

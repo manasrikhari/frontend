@@ -8,6 +8,8 @@ interface WhiteboardProps {
   onEditorMount?: (editor: any) => void;
   room?: any;
   localParticipant?: any;
+  isSidebarOpen?: boolean;
+  isMobile?: boolean;
 }
 
 // Tldraw uses browser APIs (window, document) that crash during SSR.

@@ -19,7 +19,7 @@ import WhiteboardPageControls from './classroom/WhiteboardPageControls';
 import { getPagesSorted } from './classroom/whiteboard-helpers';
 
 
-import Header from './classroom/Header';
+
 import Controls from './classroom/Controls';
 import FloatingTeacherTile from './classroom/FloatingTeacherTile';
 import StudentSidebar from './classroom/StudentSidebar';
@@ -147,6 +147,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   useEffect(() => {
     setIsFocusMode(layoutMode === 'focus');
   }, [layoutMode]);
+
+  // Auto-collapse active feeds panel on mobile when whiteboard is opened
+  useEffect(() => {
+    if (showWhiteboard && isMobile) {
+      setIsFocusMode(true);
+      setLayoutMode('focus');
+    }
+  }, [showWhiteboard, isMobile]);
 
   const [studentGridPage, setStudentGridPage] = useState(0);
   const [sidebarPage, setSidebarPage] = useState(0);
@@ -983,7 +991,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#030712] text-foreground overflow-hidden relative font-sans">
+    <div className="flex flex-col h-screen w-screen bg-[#030712] text-foreground overflow-hidden relative font-sans">
       
       {/* Reconnecting Overlay */}
       {showReconnecting && (
@@ -1001,195 +1009,196 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         </div>
       )}
 
-      {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      {/* Main Workspace + Sidebars (Top Flex Row) */}
+      <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
         
-        <Header
-          isFocusMode={isFocusMode}
-          setIsFocusMode={setIsFocusMode}
-          showSplitLayout={showSplitLayout}
-        />
+        {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
-        {/* Content Viewport */}
-        <div className="flex-1 overflow-hidden relative bg-[#060b18]">
-          
-          <FloatingTeacherTile
-            teacherTrack={teacherTrack}
-            isFocusMode={isFocusMode}
-            showSplitLayout={showSplitLayout}
-          />
+          {/* Content Viewport */}
+          <div className="flex-1 overflow-hidden relative bg-[#060b18]">
+            
+            <FloatingTeacherTile
+              teacherTrack={teacherTrack}
+              isFocusMode={isFocusMode}
+              showSplitLayout={showSplitLayout}
+            />
 
-          {teacherAbsentTimeLeft !== null && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[50] w-full max-w-lg px-4">
-              <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
-                <div className="flex items-center gap-2.5">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
-                    <span className="text-[10px] text-amber-200/70">
-                      {teacherAbsentTimeLeft > 180
-                        ? "Waiting for them to rejoin..."
-                        : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
+            {teacherAbsentTimeLeft !== null && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[50] w-full max-w-lg px-4">
+                <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
                     </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
+                      <span className="text-[10px] text-amber-200/70">
+                        {teacherAbsentTimeLeft > 180
+                          ? "Waiting for them to rejoin..."
+                          : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
-          <div className={`w-full h-full bg-white ${showWhiteboard ? 'relative block' : 'absolute inset-0 opacity-0 pointer-events-none'}`}>
-            <WhiteboardWrapper 
-              roomName={roomName} 
-              userName={userName} 
-              onEditorMount={handleEditorMount} 
-              isTeacher={isTeacher}
-              isWritable={isWhiteboardAllowed}
-              room={room}
-              localParticipant={localParticipant}
-            />
-
-            {/* Whiteboard Page Controls (restricted to teachers & authorized students) */}
-            <WhiteboardPageControls editor={editor} isTeacher={isTeacher} isWritable={isWhiteboardAllowed} />
-          </div>
-
-          {!showWhiteboard && (
-            hasScreenShare && screenShareTrackRef ? (
-              /* Screen Share takes center stage */
-              <div className="w-full h-full flex items-center justify-center p-4">
-                <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl">
-                  <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
-                </div>
-              </div>
-            ) : (
-              <GridView
+            {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
+            <div className={`w-full h-full bg-white overflow-hidden z-10 ${showWhiteboard ? 'relative block' : 'absolute inset-0 opacity-0 pointer-events-none'}`}>
+              <WhiteboardWrapper 
+                roomName={roomName} 
+                userName={userName} 
+                onEditorMount={handleEditorMount} 
                 isTeacher={isTeacher}
-                activeStudentTrack={activeStudentTrack}
-                teacherTrack={teacherTrack}
-                remoteStudents={remoteStudents}
-                gridStudents={gridStudents}
-                cameraTracksCount={cameraTracks.length}
-                layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
-                pinnedTrackSid={pinnedTrackSid}
-                setPinnedTrackSid={setPinnedTrackSid}
-                spotlightTrackSid={spotlightTrackSid}
-                setSpotlightTrackSid={setSpotlightTrackSid}
-                onBroadcastSpotlight={handleBroadcastSpotlight}
-                localTrack={localTrack}
+                isWritable={isWhiteboardAllowed}
+                room={room}
+                localParticipant={localParticipant}
+                isSidebarOpen={!isFocusMode}
+                isMobile={isMobile}
               />
-            )
-          )}
+
+              {/* Whiteboard Page Controls (restricted to teachers & authorized students) */}
+              <WhiteboardPageControls editor={editor} isTeacher={isTeacher} isWritable={isWhiteboardAllowed} />
+            </div>
+
+            {!showWhiteboard && (
+              hasScreenShare && screenShareTrackRef ? (
+                /* Screen Share takes center stage */
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl">
+                    <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
+                  </div>
+                </div>
+              ) : (
+                <GridView
+                  isTeacher={isTeacher}
+                  activeStudentTrack={activeStudentTrack}
+                  teacherTrack={teacherTrack}
+                  remoteStudents={remoteStudents}
+                  gridStudents={gridStudents}
+                  cameraTracksCount={cameraTracks.length}
+                  layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
+                  pinnedTrackSid={pinnedTrackSid}
+                  setPinnedTrackSid={setPinnedTrackSid}
+                  spotlightTrackSid={spotlightTrackSid}
+                  setSpotlightTrackSid={setSpotlightTrackSid}
+                  onBroadcastSpotlight={handleBroadcastSpotlight}
+                  localTrack={localTrack}
+                />
+              )
+            )}
+
+          </div>
 
         </div>
 
-        {/* Full-width Google Meet Style Footer */}
-        <Controls
-          roomName={roomName}
-          isMicrophoneEnabled={isMicrophoneEnabled}
-          toggleMicrophone={toggleMicrophone}
-          isCameraEnabled={isCameraEnabled}
-          toggleCamera={toggleCamera}
-          isScreenShareEnabled={isScreenShareEnabled}
-          toggleScreenShare={toggleScreenShare}
-          showWhiteboard={showWhiteboard}
-          toggleWhiteboard={toggleWhiteboard}
-          isTeacher={isTeacher}
-          isExporting={isExporting}
-          handleEndClass={handleEndClass}
-          onLeave={() => {
-            if (isTeacher) {
-              setShowEndCallModal(true);
-            } else {
-              onLeave();
-            }
-          }}
-          exportedPdfUrl={exportedPdfUrl}
-          activeRightPanelTab={activeRightPanelTab}
-          setActiveRightPanelTab={setActiveRightPanelTab}
-          isWhiteboardAllowed={isWhiteboardAllowed}
-          isScreenShareAllowed={isScreenShareAllowed}
-          layoutMode={layoutMode}
-          setLayoutMode={setLayoutMode}
-          showSplitLayout={showSplitLayout}
-        />
+        {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
+        {showSplitLayout && (
+          <StudentSidebar
+            showWhiteboard={showWhiteboard}
+            teacherTrack={teacherTrack}
+            sidebarStudents={sidebarStudents}
+            isOpen={!isFocusMode}
+            onToggle={() => {
+              const nextFocus = !isFocusMode;
+              setIsFocusMode(nextFocus);
+              setLayoutMode(nextFocus ? 'focus' : 'sidebar');
+            }}
+          />
+        )}
 
-        {/* End Call Options Modal for Teachers */}
-        {showEndCallModal && (
-          <div className="fixed inset-0 z-[1000000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-[#0b0f19]/90 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-              <h3 className="text-lg font-bold text-white text-center font-sans">End Session</h3>
-              <p className="text-sm text-foreground/60 text-center leading-normal font-sans">
-                Choose how you want to exit the class session.
-              </p>
-              <div className="flex flex-col gap-2.5 pt-2 font-sans">
-                <button
-                  onClick={() => {
-                    setShowEndCallModal(false);
-                    handleEndClass(true);
-                  }}
-                  className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
-                >
-                  End Call for All
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEndCallModal(false);
-                    onLeave();
-                  }}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[#ffffff] font-semibold rounded-xl text-sm transition-colors cursor-pointer"
-                >
-                  Leave Meeting
-                </button>
-                <button
-                  onClick={() => setShowEndCallModal(false)}
-                  className="w-full py-2 text-xs text-foreground/45 hover:text-white font-semibold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* RIGHT PANE: Chat & Participants Panel */}
+        {activeRightPanelTab && localParticipant && (
+          <ChatPanel
+            activeTab={activeRightPanelTab}
+            setActiveTab={setActiveRightPanelTab}
+            messages={messages}
+            onSendMessage={sendMessage}
+            participants={participants}
+            localParticipant={localParticipant}
+            activeChatTarget={activeChatTarget}
+            setActiveChatTarget={setActiveChatTarget}
+            roomName={roomName}
+            globalWhiteboardAllowed={globalWhiteboardAllowed}
+            globalScreenShareAllowed={globalScreenShareAllowed}
+            allowedWhiteboardStudents={allowedWhiteboardStudents}
+            allowedScreenShareStudents={allowedScreenShareStudents}
+            onToggleGlobalPermission={handleToggleGlobalPermission}
+            onToggleStudentPermission={handleToggleStudentPermission}
+          />
         )}
 
       </div>
 
-      {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
-      {showSplitLayout && (
-        <StudentSidebar
-          showWhiteboard={showWhiteboard}
-          teacherTrack={teacherTrack}
-          sidebarStudents={sidebarStudents}
-          isOpen={!isFocusMode}
-          onToggle={() => {
-            const nextFocus = !isFocusMode;
-            setIsFocusMode(nextFocus);
-            setLayoutMode(nextFocus ? 'focus' : 'sidebar');
-          }}
-        />
-      )}
+      {/* BOTTOM ROW: Full-width Google Meet Style Footer */}
+      <Controls
+        roomName={roomName}
+        isMicrophoneEnabled={isMicrophoneEnabled}
+        toggleMicrophone={toggleMicrophone}
+        isCameraEnabled={isCameraEnabled}
+        toggleCamera={toggleCamera}
+        isScreenShareEnabled={isScreenShareEnabled}
+        toggleScreenShare={toggleScreenShare}
+        showWhiteboard={showWhiteboard}
+        toggleWhiteboard={toggleWhiteboard}
+        isTeacher={isTeacher}
+        isExporting={isExporting}
+        handleEndClass={handleEndClass}
+        onLeave={() => {
+          if (isTeacher) {
+            setShowEndCallModal(true);
+          } else {
+            onLeave();
+          }
+        }}
+        exportedPdfUrl={exportedPdfUrl}
+        activeRightPanelTab={activeRightPanelTab}
+        setActiveRightPanelTab={setActiveRightPanelTab}
+        isWhiteboardAllowed={isWhiteboardAllowed}
+        isScreenShareAllowed={isScreenShareAllowed}
+        layoutMode={layoutMode}
+        setLayoutMode={setLayoutMode}
+        showSplitLayout={showSplitLayout}
+      />
 
-      {/* RIGHT PANE: Chat & Participants Panel */}
-      {activeRightPanelTab && localParticipant && (
-        <ChatPanel
-          activeTab={activeRightPanelTab}
-          setActiveTab={setActiveRightPanelTab}
-          messages={messages}
-          onSendMessage={sendMessage}
-          participants={participants}
-          localParticipant={localParticipant}
-          activeChatTarget={activeChatTarget}
-          setActiveChatTarget={setActiveChatTarget}
-          roomName={roomName}
-          globalWhiteboardAllowed={globalWhiteboardAllowed}
-          globalScreenShareAllowed={globalScreenShareAllowed}
-          allowedWhiteboardStudents={allowedWhiteboardStudents}
-          allowedScreenShareStudents={allowedScreenShareStudents}
-          onToggleGlobalPermission={handleToggleGlobalPermission}
-          onToggleStudentPermission={handleToggleStudentPermission}
-        />
+      {/* End Call Options Modal for Teachers */}
+      {showEndCallModal && (
+        <div className="fixed inset-0 z-[1000000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0b0f19]/90 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold text-white text-center font-sans">End Session</h3>
+            <p className="text-sm text-foreground/60 text-center leading-normal font-sans">
+              Choose how you want to exit the class session.
+            </p>
+            <div className="flex flex-col gap-2.5 pt-2 font-sans">
+              <button
+                onClick={() => {
+                  setShowEndCallModal(false);
+                  handleEndClass(true);
+                }}
+                className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+              >
+                End Call for All
+              </button>
+              <button
+                onClick={() => {
+                  setShowEndCallModal(false);
+                  onLeave();
+                }}
+                className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[#ffffff] font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+              >
+                Leave Meeting
+              </button>
+              <button
+                onClick={() => setShowEndCallModal(false)}
+                className="w-full py-2 text-xs text-foreground/45 hover:text-white font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Exporting / Publishing Notes Overlay */}

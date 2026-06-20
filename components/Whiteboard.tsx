@@ -40,6 +40,8 @@ interface WhiteboardProps {
   onEditorMount?: (editor: any) => void;
   room?: any;
   localParticipant?: any;
+  isSidebarOpen?: boolean;
+  isMobile?: boolean;
 }
 
 const SYNC_WORKER_URL = process.env.NEXT_PUBLIC_SYNC_WORKER_URL || 'http://localhost:8787';
@@ -148,7 +150,9 @@ export default function Whiteboard({
   isWritable, 
   onEditorMount,
   room,
-  localParticipant
+  localParticipant,
+  isSidebarOpen = false,
+  isMobile = false
 }: WhiteboardProps) {
   // useSync connects to our self-hosted Cloudflare worker sync endpoint
   const store = useSync({
@@ -590,6 +594,8 @@ export default function Whiteboard({
       <ResumeFollowingButton 
         editor={editor} 
         isTeacher={isTeacher} 
+        isSidebarOpen={isSidebarOpen}
+        isMobile={isMobile}
       />
     </div>
   );
@@ -632,7 +638,17 @@ function EmptyWhiteboardOverlay({ editor, isTeacher }: { editor: any; isTeacher:
   );
 }
 
-function ResumeFollowingButton({ editor, isTeacher }: { editor: any; isTeacher: boolean }) {
+function ResumeFollowingButton({ 
+  editor, 
+  isTeacher, 
+  isSidebarOpen, 
+  isMobile 
+}: { 
+  editor: any; 
+  isTeacher: boolean; 
+  isSidebarOpen: boolean; 
+  isMobile: boolean 
+}) {
   const [isFollowingTeacher, setIsFollowingTeacher] = useState(false);
 
   useEffect(() => {
@@ -693,7 +709,13 @@ function ResumeFollowingButton({ editor, isTeacher }: { editor: any; isTeacher: 
           setIsFollowingTeacher(true);
         }
       }}
-      className="absolute bottom-6 right-6 z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-200 border border-primary/20 animate-in fade-in slide-in-from-bottom-3 duration-200"
+      className={`absolute right-6 z-[999] flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-lg hover:shadow-primary/25 cursor-pointer font-sans transition-all duration-300 border border-primary/20 md:bottom-6 md:right-6 ${
+        isMobile
+          ? isSidebarOpen
+            ? "bottom-[180px]"
+            : "bottom-[56px]"
+          : "bottom-6"
+      }`}
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

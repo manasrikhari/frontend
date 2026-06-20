@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useMediaDeviceSelect } from '@livekit/components-react';
 import { Lock, LayoutGrid, Maximize2, Columns, Eye, Target } from 'lucide-react';
 import Tooltip from './Tooltip';
@@ -55,9 +55,50 @@ export default function Controls({
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
-  const [timeStr, setTimeStr] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
   const layoutMenuRef = useRef<HTMLDivElement>(null);
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Determine the meeting start time from roomName or fallback to component mount time
+  const startTime = useMemo(() => {
+    // roomName format: e.g. "batch-1-1781945687700-297c32" or "BATCH-1-1781945687700-297C32"
+    const parts = roomName.split('-');
+    if (parts.length >= 3) {
+      const tsPart = parts.find((part) => /^\d{13}$/.test(part));
+      if (tsPart) {
+        const ts = parseInt(tsPart, 10);
+        // Sanity check: must be a timestamp within the last 24 hours
+        if (Date.now() - ts > 0 && Date.now() - ts < 24 * 60 * 60 * 1000) {
+          return ts;
+        }
+      }
+    }
+    return Date.now();
+  }, [roomName]);
+
+  // Update meeting duration timer
+  useEffect(() => {
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+    };
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  // Formatter for elapsedSeconds to hh:mm:ss (hours hidden if 0)
+  const formatDuration = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (num: number) => String(num).padStart(2, '0');
+
+    if (hours > 0) {
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+    return `${pad(minutes)}:${pad(seconds)}`;
+  };
 
   // Close layout menu when clicking outside
   useEffect(() => {
@@ -75,16 +116,7 @@ export default function Controls({
     };
   }, [showLayoutMenu]);
 
-  // Live system clock update
-  useEffect(() => {
-    const updateTime = () => {
-      const date = new Date();
-      setTimeStr(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+
 
   // Retrieve audio devices (microphones)
   const {
@@ -124,19 +156,19 @@ export default function Controls({
   }, [showDeviceSettings]);
 
   return (
-    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-6 py-4 flex items-center justify-center md:justify-between relative z-[999999] select-none">
+    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-center md:justify-between relative z-[999999] select-none">
       {/* Left side: Class details & time */}
-      <div className="hidden md:flex flex-col min-w-[200px]">
-        <span className="font-bold text-sm text-white uppercase tracking-wider">
-          {roomName}
+      <div className="hidden md:flex flex-col min-w-[120px] lg:min-w-[200px]">
+        <span className="font-bold text-sm text-white tracking-wider">
+          OpenGrapes Live
         </span>
         <span className="text-xs text-[#C2CCDE]/50 font-semibold mt-0.5">
-          {timeStr}
+          {formatDuration(elapsedSeconds)}
         </span>
       </div>
 
       {/* Center side: Meeting controls */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1.5 md:gap-2 lg:gap-3">
         {/* Microphone Toggle */}
         <Tooltip
           content={
@@ -1040,7 +1072,7 @@ export default function Controls({
       </div>
 
       {/* Right side: Sidebar toggles */}
-      <div className="hidden md:flex items-center gap-3 min-w-[200px] justify-end">
+      <div className="hidden md:flex items-center gap-3 min-w-[120px] lg:min-w-[200px] justify-end">
         {/* Chat Toggle */}
         <Tooltip
           content={activeRightPanelTab === "chat" ? "Hide Chat" : "Show Chat"}
