@@ -193,12 +193,55 @@ export default function ChatPanel({
   };
 
   return (
-    <aside className="fixed lg:relative right-0 top-0 h-full w-80 sm:w-96 lg:w-80 border-l border-border/30 bg-[#090d1a]/95 lg:bg-[#090d1a]/85 backdrop-blur-2xl lg:backdrop-blur-xl flex flex-col z-50 lg:z-50 shadow-2xl lg:shadow-none">
-      {/* Header with Tabs */}
-      <div className="h-16 border-b border-border/30 flex items-center justify-between px-4 bg-surface/30">
+    <aside className="fixed inset-0 w-full h-full z-[999999] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col md:right-0 md:left-auto md:w-80 md:inset-y-0 md:h-full md:border-l md:border-border/30 md:bg-[#090d1a]/95 md:z-50 lg:relative lg:w-80 lg:bg-[#090d1a]/85 lg:backdrop-blur-xl lg:shadow-none lg:z-50">
+      {/* Mobile-only Google Meet Header */}
+      <div className="md:hidden h-14 border-b border-border/20 flex items-center justify-between px-4 bg-surface/30">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab(null)}
+            type="button"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-[#C2CCDE] hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <span className="text-base font-bold text-white tracking-wide">
+            {activeTab === 'chat' ? 'In-call messages' : `People (${participants.length})`}
+          </span>
+        </div>
+      </div>
+
+      {/* Mobile-only Tab Selector Bar */}
+      <div className="md:hidden flex border-b border-border/10 bg-surface/10">
+        <button
+          onClick={() => setActiveTab('chat')}
+          type="button"
+          className={`flex-1 py-3.5 text-xs font-semibold text-center border-b-2 transition-all cursor-pointer ${
+            activeTab === 'chat'
+              ? 'border-primary text-white bg-white/[0.02]'
+              : 'border-transparent text-[#C2CCDE] hover:text-white'
+          }`}
+        >
+          Chat messages
+        </button>
+        <button
+          onClick={() => setActiveTab('participants')}
+          type="button"
+          className={`flex-1 py-3.5 text-xs font-semibold text-center border-b-2 transition-all cursor-pointer ${
+            activeTab === 'participants'
+              ? 'border-primary text-white bg-white/[0.02]'
+              : 'border-transparent text-[#C2CCDE] hover:text-white'
+          }`}
+        >
+          People ({participants.length})
+        </button>
+      </div>
+
+      {/* Desktop/Tablet Header */}
+      <div className="hidden md:flex h-16 border-b border-border/30 items-center justify-between px-4 bg-surface/30">
         <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveTab('chat')}
+            type="button"
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'chat'
                 ? 'bg-primary/15 text-primary border border-primary/20'
@@ -210,6 +253,7 @@ export default function ChatPanel({
           </button>
           <button
             onClick={() => setActiveTab('participants')}
+            type="button"
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'participants'
                 ? 'bg-primary/15 text-primary border border-primary/20'
@@ -223,6 +267,7 @@ export default function ChatPanel({
 
         <button
           onClick={() => setActiveTab(null)}
+          type="button"
           className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-[#C2CCDE]/60 hover:text-white transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />

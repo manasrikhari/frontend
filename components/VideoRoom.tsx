@@ -1133,35 +1133,37 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       </div>
 
       {/* BOTTOM ROW: Full-width Google Meet Style Footer */}
-      <Controls
-        roomName={roomName}
-        isMicrophoneEnabled={isMicrophoneEnabled}
-        toggleMicrophone={toggleMicrophone}
-        isCameraEnabled={isCameraEnabled}
-        toggleCamera={toggleCamera}
-        isScreenShareEnabled={isScreenShareEnabled}
-        toggleScreenShare={toggleScreenShare}
-        showWhiteboard={showWhiteboard}
-        toggleWhiteboard={toggleWhiteboard}
-        isTeacher={isTeacher}
-        isExporting={isExporting}
-        handleEndClass={handleEndClass}
-        onLeave={() => {
-          if (isTeacher) {
-            setShowEndCallModal(true);
-          } else {
-            onLeave();
-          }
-        }}
-        exportedPdfUrl={exportedPdfUrl}
-        activeRightPanelTab={activeRightPanelTab}
-        setActiveRightPanelTab={setActiveRightPanelTab}
-        isWhiteboardAllowed={isWhiteboardAllowed}
-        isScreenShareAllowed={isScreenShareAllowed}
-        layoutMode={layoutMode}
-        setLayoutMode={setLayoutMode}
-        showSplitLayout={showSplitLayout}
-      />
+      {(!isMobile || !activeRightPanelTab) && (
+        <Controls
+          roomName={roomName}
+          isMicrophoneEnabled={isMicrophoneEnabled}
+          toggleMicrophone={toggleMicrophone}
+          isCameraEnabled={isCameraEnabled}
+          toggleCamera={toggleCamera}
+          isScreenShareEnabled={isScreenShareEnabled}
+          toggleScreenShare={toggleScreenShare}
+          showWhiteboard={showWhiteboard}
+          toggleWhiteboard={toggleWhiteboard}
+          isTeacher={isTeacher}
+          isExporting={isExporting}
+          handleEndClass={handleEndClass}
+          onLeave={() => {
+            if (isTeacher) {
+              setShowEndCallModal(true);
+            } else {
+              onLeave();
+            }
+          }}
+          exportedPdfUrl={exportedPdfUrl}
+          activeRightPanelTab={activeRightPanelTab}
+          setActiveRightPanelTab={setActiveRightPanelTab}
+          isWhiteboardAllowed={isWhiteboardAllowed}
+          isScreenShareAllowed={isScreenShareAllowed}
+          layoutMode={layoutMode}
+          setLayoutMode={setLayoutMode}
+          showSplitLayout={showSplitLayout}
+        />
+      )}
 
       {/* End Call Options Modal for Teachers */}
       {showEndCallModal && (
