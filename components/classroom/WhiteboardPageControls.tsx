@@ -5,9 +5,10 @@ import { addHandDrawnPage, importPdf, importImage, getPagesSorted } from './whit
 interface WhiteboardPageControlsProps {
   editor: any;
   isTeacher: boolean;
+  isWritable?: boolean;
 }
 
-export default function WhiteboardPageControls({ editor, isTeacher }: WhiteboardPageControlsProps) {
+export default function WhiteboardPageControls({ editor, isTeacher, isWritable }: WhiteboardPageControlsProps) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -82,7 +83,8 @@ export default function WhiteboardPageControls({ editor, isTeacher }: Whiteboard
     }
   }, [editor]);
 
-  if (!isTeacher || !editor) return null;
+  const hasAccess = isTeacher || isWritable;
+  if (!hasAccess || !editor) return null;
 
   return (
     <div 

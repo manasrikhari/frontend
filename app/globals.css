@@ -204,3 +204,10 @@ body {
   display: none !important;
 }
 
+/* Always show close controls on touch/hoverless devices */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 1 !important;
+  }
+}
+

@@ -101,10 +101,43 @@ const whiteboardOverrides = {
     delete newActions['export-as-svg'];
     delete newActions['export-as-png'];
     delete newActions['export-as-json'];
+    delete newActions['insert-media'];
     delete newActions['upload-media'];
     delete newActions['insert-embed'];
     delete newActions['toggle-focus-mode'];
     return newActions;
+  },
+  toolbar: (editor: any, toolbarItems: any, { tools }: any) => {
+    // Filter out the 'media' and 'asset' tools from the bottom toolbar
+    return toolbarItems.filter((item: any) => item.id !== 'media' && item.id !== 'asset');
+  },
+  tools: (editor: any, tools: any) => {
+    const newTools = { ...tools };
+    // Clear keyboard shortcuts and delete the tools from the UI
+    if (newTools['media']) {
+      newTools['media'] = {
+        ...newTools['media'],
+        kbd: '',
+      };
+    }
+    if (newTools['asset']) {
+      newTools['asset'] = {
+        ...newTools['asset'],
+        kbd: '',
+      };
+    }
+    delete newTools['media'];
+    delete newTools['asset'];
+    return newTools;
+  },
+  keyboardShortcuts: (editor: any, shortcuts: any) => {
+    const newShortcuts = { ...shortcuts };
+    // Clear keyboard shortcuts associated with media upload
+    delete newShortcuts['insert-media'];
+    delete newShortcuts['upload-media'];
+    delete newShortcuts['media'];
+    delete newShortcuts['asset'];
+    return newShortcuts;
   },
 };
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ParticipantTile, TrackReferenceOrPlaceholder } from '@livekit/components-react';
+import { X } from 'lucide-react';
 
 interface FloatingTeacherTileProps {
   teacherTrack: TrackReferenceOrPlaceholder | undefined;
@@ -15,8 +16,16 @@ export default function FloatingTeacherTile({
   showSplitLayout,
 }: FloatingTeacherTileProps) {
   const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [isVisible, setIsVisible] = useState(true);
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
   const tileRef = useRef<HTMLDivElement>(null);
+
+  // Reset visibility when focus mode becomes active
+  useEffect(() => {
+    if (isFocusMode) {
+      setIsVisible(true);
+    }
+  }, [isFocusMode]);
 
   // Initialize teacher tile position to bottom right of viewport when it becomes active
   useEffect(() => {
@@ -94,7 +103,7 @@ export default function FloatingTeacherTile({
     }
   }, []);
 
-  if (!isFocusMode || !showSplitLayout || !teacherTrack) return null;
+  if (!isFocusMode || !showSplitLayout || !teacherTrack || !isVisible) return null;
 
   return (
     <div
@@ -109,8 +118,21 @@ export default function FloatingTeacherTile({
         zIndex: 250,
         touchAction: 'none',
       }}
-      className="w-40 md:w-52 lg:w-64 aspect-video rounded-xl overflow-hidden border border-[#6366f1]/30 bg-[#111827]/80 backdrop-blur-md shadow-2xl cursor-grab active:cursor-grabbing select-none"
+      className="w-40 md:w-52 lg:w-64 aspect-video rounded-xl overflow-hidden border border-[#6366f1]/30 bg-[#111827]/80 backdrop-blur-md shadow-2xl cursor-grab active:cursor-grabbing select-none group"
     >
+      {/* Close button to hide tile temporarily */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsVisible(false);
+        }}
+        className="absolute top-2 right-2 z-[300] w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white flex items-center justify-center cursor-pointer transition-colors border border-white/10 opacity-0 group-hover:opacity-100 touch-visible"
+        title="Hide tile"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+
       <div className="w-full h-full pointer-events-none">
         <ParticipantTile trackRef={teacherTrack} className="w-full h-full" />
       </div>

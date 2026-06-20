@@ -60,6 +60,20 @@ interface RoomContentProps {
   sessionToken?: string;
 }
 
+function getSavedState<T>(roomName: string, keySuffix: string, defaultValue: T, sessionToken?: string): T {
+  if (typeof window === 'undefined' || !sessionToken) return defaultValue;
+  try {
+    const decoded = decodeJwt(sessionToken);
+    if (decoded?.role === 'teacher') {
+      const saved = localStorage.getItem(`${keySuffix}_${roomName}`);
+      if (saved !== null) return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to parse saved state:', e);
+  }
+  return defaultValue;
+}
+
 function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }: RoomContentProps) {
   const room = useRoomContext();
   const connectionState = useConnectionState();
@@ -72,8 +86,68 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     }
   }, [connectionState, onConnected]);
 
-  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(() =>
+    getSavedState(roomName, 'whiteboard_active', false, sessionToken)
+  );
+
+  // Query all active camera feeds and screen shares
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false }
+  );
+
+  const screenShareTrackRef = tracks.find(t => t.source === Track.Source.ScreenShare);
+  const hasScreenShare = !!screenShareTrackRef;
+  const cameraTracks = tracks.filter(t => t.source === Track.Source.Camera);
+
+  // Whiteboard or Screen Share triggers the Split Layout (Main pane + right sidebar)
+  const showSplitLayout = showWhiteboard || hasScreenShare;
+
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'auto' | 'tiled' | 'spotlight' | 'sidebar' | 'focus'>('auto');
+  const [pinnedTrackSid, setPinnedTrackSid] = useState<string | null>(null);
+  const [spotlightTrackSid, setSpotlightTrackSid] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-switch layout mode when a participant is pinned locally or spotlighted by teacher
+  useEffect(() => {
+    if (pinnedTrackSid || spotlightTrackSid) {
+      setLayoutMode('sidebar');
+    } else {
+      setLayoutMode((prev) => (prev === 'focus' ? 'focus' : 'tiled'));
+    }
+  }, [pinnedTrackSid, spotlightTrackSid]);
+
+  // Synchronize layoutMode and isFocusMode
+  useEffect(() => {
+    if (isFocusMode) {
+      if (layoutMode !== 'focus') {
+        setLayoutMode('focus');
+      }
+    } else {
+      if (layoutMode === 'focus') {
+        setLayoutMode(showSplitLayout ? 'sidebar' : 'tiled');
+      }
+    }
+  }, [isFocusMode, showSplitLayout]);
+
+  useEffect(() => {
+    setIsFocusMode(layoutMode === 'focus');
+  }, [layoutMode]);
+
   const [studentGridPage, setStudentGridPage] = useState(0);
   const [sidebarPage, setSidebarPage] = useState(0);
   const [lastActiveStudentSid, setLastActiveStudentSid] = useState<string | null>(null);
@@ -93,10 +167,18 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
-  const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(false);
-  const [globalScreenShareAllowed, setGlobalScreenShareAllowed] = useState(false);
-  const [allowedWhiteboardStudents, setAllowedWhiteboardStudents] = useState<Record<string, boolean>>({});
-  const [allowedScreenShareStudents, setAllowedScreenShareStudents] = useState<Record<string, boolean>>({});
+  const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(() =>
+    getSavedState(roomName, 'global_whiteboard_allowed', false, sessionToken)
+  );
+  const [globalScreenShareAllowed, setGlobalScreenShareAllowed] = useState(() =>
+    getSavedState(roomName, 'global_screenshare_allowed', false, sessionToken)
+  );
+  const [allowedWhiteboardStudents, setAllowedWhiteboardStudents] = useState<Record<string, boolean>>(() =>
+    getSavedState<Record<string, boolean>>(roomName, 'allowed_whiteboard_students', {}, sessionToken)
+  );
+  const [allowedScreenShareStudents, setAllowedScreenShareStudents] = useState<Record<string, boolean>>(() =>
+    getSavedState<Record<string, boolean>>(roomName, 'allowed_screenshare_students', {}, sessionToken)
+  );
   const [teacherAbsentTimeLeft, setTeacherAbsentTimeLeft] = useState<number | null>(null);
   const participants = useParticipants();
 
@@ -213,6 +295,60 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       }
     };
   }, []);
+
+  // Save whiteboard permissions/state to localStorage for teachers
+  useEffect(() => {
+    if (!isTeacher || typeof window === 'undefined') return;
+    localStorage.setItem(`whiteboard_active_${roomName}`, JSON.stringify(showWhiteboard));
+    localStorage.setItem(`global_whiteboard_allowed_${roomName}`, JSON.stringify(globalWhiteboardAllowed));
+    localStorage.setItem(`global_screenshare_allowed_${roomName}`, JSON.stringify(globalScreenShareAllowed));
+    localStorage.setItem(`allowed_whiteboard_students_${roomName}`, JSON.stringify(allowedWhiteboardStudents));
+    localStorage.setItem(`allowed_screenshare_students_${roomName}`, JSON.stringify(allowedScreenShareStudents));
+  }, [
+    isTeacher,
+    roomName,
+    showWhiteboard,
+    globalWhiteboardAllowed,
+    globalScreenShareAllowed,
+    allowedWhiteboardStudents,
+    allowedScreenShareStudents,
+  ]);
+
+  const hasBroadcastedInitialRef = useRef(false);
+
+  // Broadcast whiteboard state on connection/reconnection
+  useEffect(() => {
+    if (connectionState !== 'connected') {
+      hasBroadcastedInitialRef.current = false;
+      return;
+    }
+    if (hasBroadcastedInitialRef.current) return;
+
+    if (isTeacher && localParticipant) {
+      hasBroadcastedInitialRef.current = true;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({
+        type: 'SET_WHITEBOARD',
+        active: showWhiteboard,
+        globalWhiteboardAllowed,
+        globalScreenShareAllowed,
+        allowedWhiteboardStudents,
+        allowedScreenShareStudents,
+      }));
+      localParticipant.publishData(data, { reliable: true }).catch(err => {
+        console.error('Failed to broadcast initial whiteboard state:', err);
+      });
+    }
+  }, [
+    connectionState,
+    isTeacher,
+    localParticipant,
+    showWhiteboard,
+    globalWhiteboardAllowed,
+    globalScreenShareAllowed,
+    allowedWhiteboardStudents,
+    allowedScreenShareStudents,
+  ]);
 
   // Auto-close chat/participants panel when entering focus mode
   useEffect(() => {
@@ -476,25 +612,18 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       alert('Class ended, but whiteboard notes could not be exported.');
     } finally {
       setIsExporting(false);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`whiteboard_active_${roomName}`);
+        localStorage.removeItem(`global_whiteboard_allowed_${roomName}`);
+        localStorage.removeItem(`global_screenshare_allowed_${roomName}`);
+        localStorage.removeItem(`allowed_whiteboard_students_${roomName}`);
+        localStorage.removeItem(`allowed_screenshare_students_${roomName}`);
+      }
       onLeave();
     }
   };
 
-  // Query all active camera feeds and screen shares
-  const tracks = useTracks(
-    [
-      { source: Track.Source.Camera, withPlaceholder: true },
-      { source: Track.Source.ScreenShare, withPlaceholder: false },
-    ],
-    { onlySubscribed: false }
-  );
 
-  const screenShareTrackRef = tracks.find(t => t.source === Track.Source.ScreenShare);
-  const hasScreenShare = !!screenShareTrackRef;
-  const cameraTracks = tracks.filter(t => t.source === Track.Source.Camera);
-
-  // Whiteboard or Screen Share triggers the Split Layout (Main pane + right sidebar)
-  const showSplitLayout = showWhiteboard || hasScreenShare;
 
   // Invite links copy mechanism removed
 
@@ -554,6 +683,21 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     }
   }, [showWhiteboard, isTeacher, localParticipant, globalWhiteboardAllowed, globalScreenShareAllowed, allowedWhiteboardStudents, allowedScreenShareStudents]);
 
+  // Teacher broadcast spotlight callback
+  const handleBroadcastSpotlight = useCallback((sid: string | null) => {
+    if (!isTeacher || !localParticipant) return;
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify({
+        type: 'FORCE_SPOTLIGHT',
+        participantSid: sid
+      }));
+      localParticipant.publishData(data, { reliable: true });
+    } catch (err) {
+      console.error('Failed to broadcast spotlight state:', err);
+    }
+  }, [isTeacher, localParticipant]);
+
   // Listen for whiteboard state broadcasts, note exports, and chat messages
   useEffect(() => {
     if (!room) return;
@@ -593,6 +737,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           setExportedPdfUrl(`${SYNC_WORKER_URL}/api/pdf/${roomName}`);
         } else if (msg.type === 'CHAT_MESSAGE') {
           setMessages((prev) => [...prev, msg]);
+        } else if (msg.type === 'FORCE_SPOTLIGHT') {
+          setSpotlightTrackSid(msg.participantSid);
         }
       } catch (err) {
         console.error('Failed to parse data channel message:', err);
@@ -707,7 +853,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       setOrderedRemoteStudents(prev => {
         if (prev.length === 0) return prev;
 
-        const visibleLimit = showSplitLayout ? 2 : 3;
+        const visibleLimit = isMobile ? (showSplitLayout ? 1 : 2) : (showSplitLayout ? 2 : 4);
         
         // Find if this speaker is in the top visible slots
         const visibleIndex = prev.findIndex(t => t.participant.sid === activeSpeaker.sid);
@@ -748,7 +894,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     return () => {
       room.off('activeSpeakersChanged', handleActiveSpeakers);
     };
-  }, [room, localParticipant, showSplitLayout]);
+  }, [room, localParticipant, showSplitLayout, isMobile]);
 
   // Check R2 bucket periodically for exported notes PDF
   useEffect(() => {
@@ -772,21 +918,27 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     };
   }, [roomName]);
 
-  // Grid View student list (uses orderedRemoteStudents)
-  const gridStudents = useMemo(() => {
-    if (isTeacher) {
-      const gridRemoteStudents = orderedRemoteStudents.filter(t => t.participant.sid !== activeStudentTrack?.participant.sid);
-      const start = studentGridPage * 3;
-      const pageRemotes = gridRemoteStudents.slice(start, start + 3);
-      return [...pageRemotes, localTrack].filter((t): t is NonNullable<typeof t> => !!t);
-    } else {
-      const start = studentGridPage * 3;
-      const pageRemotes = orderedRemoteStudents.slice(start, start + 3);
-      return [...pageRemotes, localTrack].filter((t): t is NonNullable<typeof t> => !!t);
-    }
-  }, [isTeacher, orderedRemoteStudents, activeStudentTrack, studentGridPage, localTrack]);
+  // Featured track helper for gridStudents filter
+  const featuredTrackSid = useMemo(() => {
+    if (pinnedTrackSid) return pinnedTrackSid;
+    if (spotlightTrackSid) return spotlightTrackSid;
+    return isTeacher ? activeStudentTrack?.participant.sid : teacherTrack?.participant.sid;
+  }, [pinnedTrackSid, spotlightTrackSid, isTeacher, activeStudentTrack, teacherTrack]);
 
-  // Sidebar student list (Split View - uses orderedRemoteStudents and places localTrack at Slot 4 / index 2)
+  // Grid View student list (uses orderedRemoteStudents and filters out featured track)
+  const gridStudents = useMemo(() => {
+    const list = [...orderedRemoteStudents];
+    const filteredList = list.filter(t => 
+      t.participant.sid !== featuredTrackSid && 
+      t.participant.sid !== localParticipant?.sid
+    );
+    if (!isTeacher && localTrack && localParticipant?.sid !== featuredTrackSid) {
+      filteredList.push(localTrack);
+    }
+    return filteredList;
+  }, [orderedRemoteStudents, featuredTrackSid, localParticipant?.sid, isTeacher, localTrack]);
+
+  // Sidebar student list (uses orderedRemoteStudents and places localTrack at Slot 3 / index 2)
   const sidebarStudents = useMemo(() => {
     if (isTeacher) {
       return orderedRemoteStudents;
@@ -799,52 +951,6 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       return filteredList.filter((t): t is NonNullable<typeof t> => !!t);
     }
   }, [isTeacher, orderedRemoteStudents, localTrack, localParticipant?.sid]);
-
-  const pageSidebarStudents = useMemo(() => {
-    const start = sidebarPage * 3;
-    return sidebarStudents.slice(start, start + 3);
-  }, [sidebarStudents, sidebarPage]);
-
-  // Max pages for dynamic pagination bound checks
-  const maxGridPage = useMemo(() => {
-    const gridRemoteCount = isTeacher 
-      ? remoteStudents.filter(t => t.participant.sid !== activeStudentTrack?.participant.sid).length
-      : remoteStudents.length;
-    return Math.max(0, Math.ceil(gridRemoteCount / 3) - 1);
-  }, [remoteStudents, isTeacher, activeStudentTrack]);
-
-  const maxSidebarPage = useMemo(() => {
-    return Math.max(0, Math.ceil(sidebarStudents.length / 3) - 1);
-  }, [sidebarStudents]);
-
-  const handlePrevGridPage = useCallback(() => {
-    setStudentGridPage(prev => Math.max(0, prev - 1));
-  }, []);
-
-  const handleNextGridPage = useCallback(() => {
-    setStudentGridPage(prev => Math.min(maxGridPage, prev + 1));
-  }, [maxGridPage]);
-
-  const handlePrevSidebarPage = useCallback(() => {
-    setSidebarPage(prev => Math.max(0, prev - 1));
-  }, []);
-
-  const handleNextSidebarPage = useCallback(() => {
-    setSidebarPage(prev => Math.min(maxSidebarPage, prev + 1));
-  }, [maxSidebarPage]);
-
-  // Reset pagination index if out of bounds
-  useEffect(() => {
-    if (studentGridPage > maxGridPage) {
-      setStudentGridPage(maxGridPage);
-    }
-  }, [studentGridPage, maxGridPage]);
-
-  useEffect(() => {
-    if (sidebarPage > maxSidebarPage) {
-      setSidebarPage(maxSidebarPage);
-    }
-  }, [sidebarPage, maxSidebarPage]);
 
   const showReconnecting = connectionState === 'reconnecting';
 
@@ -946,8 +1052,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               localParticipant={localParticipant}
             />
 
-            {/* Whiteboard Page Controls (restricted to teachers) */}
-            <WhiteboardPageControls editor={editor} isTeacher={isTeacher} />
+            {/* Whiteboard Page Controls (restricted to teachers & authorized students) */}
+            <WhiteboardPageControls editor={editor} isTeacher={isTeacher} isWritable={isWhiteboardAllowed} />
           </div>
 
           {!showWhiteboard && (
@@ -965,11 +1071,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                 teacherTrack={teacherTrack}
                 remoteStudents={remoteStudents}
                 gridStudents={gridStudents}
-                maxGridPage={maxGridPage}
-                studentGridPage={studentGridPage}
-                handlePrevGridPage={handlePrevGridPage}
-                handleNextGridPage={handleNextGridPage}
                 cameraTracksCount={cameraTracks.length}
+                layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
+                pinnedTrackSid={pinnedTrackSid}
+                setPinnedTrackSid={setPinnedTrackSid}
+                spotlightTrackSid={spotlightTrackSid}
+                setSpotlightTrackSid={setSpotlightTrackSid}
+                onBroadcastSpotlight={handleBroadcastSpotlight}
+                localTrack={localTrack}
               />
             )
           )}
@@ -1002,6 +1111,9 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           setActiveRightPanelTab={setActiveRightPanelTab}
           isWhiteboardAllowed={isWhiteboardAllowed}
           isScreenShareAllowed={isScreenShareAllowed}
+          layoutMode={layoutMode}
+          setLayoutMode={setLayoutMode}
+          showSplitLayout={showSplitLayout}
         />
 
         {/* End Call Options Modal for Teachers */}
@@ -1044,16 +1156,18 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
       </div>
 
-      {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active and NOT in Focus Mode) */}
-      {showSplitLayout && !isFocusMode && (
+      {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
+      {showSplitLayout && (
         <StudentSidebar
           showWhiteboard={showWhiteboard}
-          maxSidebarPage={maxSidebarPage}
-          sidebarPage={sidebarPage}
-          handlePrevSidebarPage={handlePrevSidebarPage}
-          handleNextSidebarPage={handleNextSidebarPage}
           teacherTrack={teacherTrack}
-          pageSidebarStudents={pageSidebarStudents}
+          sidebarStudents={sidebarStudents}
+          isOpen={!isFocusMode}
+          onToggle={() => {
+            const nextFocus = !isFocusMode;
+            setIsFocusMode(nextFocus);
+            setLayoutMode(nextFocus ? 'focus' : 'sidebar');
+          }}
         />
       )}
 

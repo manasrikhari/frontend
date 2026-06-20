@@ -193,7 +193,7 @@ export default function ChatPanel({
   };
 
   return (
-    <aside className="w-80 border-l border-border/30 bg-[#090d1a]/85 backdrop-blur-xl flex flex-col h-full z-20">
+    <aside className="fixed lg:relative right-0 top-0 h-full w-80 sm:w-96 lg:w-80 border-l border-border/30 bg-[#090d1a]/95 lg:bg-[#090d1a]/85 backdrop-blur-2xl lg:backdrop-blur-xl flex flex-col z-50 lg:z-20 shadow-2xl lg:shadow-none">
       {/* Header with Tabs */}
       <div className="h-16 border-b border-border/30 flex items-center justify-between px-4 bg-surface/30">
         <div className="flex items-center gap-1">
