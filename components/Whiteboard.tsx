@@ -164,6 +164,7 @@ export default function Whiteboard({
   const [editor, setEditor] = useState<any>(null);
 
   const localParticipantRef = useRef(localParticipant);
+  const activeStrokeIdRef = useRef<string | null>(null);
   const isTeacherRef = useRef(isTeacher);
   const isWritableRef = useRef(isWritable);
 
@@ -199,12 +200,16 @@ export default function Whiteboard({
       if (shape.meta?.createdBy) {
         return shape;
       }
+      const metaUpdate: any = {
+        ...shape.meta,
+        createdBy: localParticipantRef.current?.identity ?? 'unknown',
+      };
+      if (activeStrokeIdRef.current !== null) {
+        metaUpdate.strokeId = activeStrokeIdRef.current;
+      }
       return {
         ...shape,
-        meta: {
-          ...shape.meta,
-          createdBy: localParticipantRef.current?.identity ?? 'unknown',
-        },
+        meta: metaUpdate,
       };
     });
 
@@ -555,7 +560,7 @@ export default function Whiteboard({
   }, [editor]);
 
   // Capture active writer coordinates (teacher or writable students)
-  useStrokeCapture({ editor, localParticipant, isWritable });
+  useStrokeCapture({ editor, localParticipant, isWritable, activeStrokeIdRef });
   useCursorBroadcast({ editor, localParticipant, isWritable, userName: userName || 'Participant', isTeacher });
 
   return (

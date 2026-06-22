@@ -207,9 +207,13 @@ function HomeContent() {
           }
 
           const data = await res.json();
-          sessionStorage.setItem('classroom_access_token', data.accessToken);
-          sessionStorage.setItem('classroom_refresh_token', data.refreshToken);
-          sessionStorage.setItem('active_room_name', data.roomId);
+          try {
+            sessionStorage.setItem('classroom_access_token', data.accessToken);
+            sessionStorage.setItem('classroom_refresh_token', data.refreshToken);
+            sessionStorage.setItem('active_room_name', data.roomId);
+          } catch (storageErr) {
+            console.warn('sessionStorage write blocked or failed:', storageErr);
+          }
 
           setRoomName(data.roomId);
           setAccessToken(data.accessToken);
@@ -225,50 +229,58 @@ function HomeContent() {
           return;
         }
       } else {
-        // Refresh check path: retrieve from sessionStorage
-        const savedRoom = sessionStorage.getItem('active_room_name') || '';
-        let savedAccess = sessionStorage.getItem('classroom_access_token') || '';
-        const savedRefresh = sessionStorage.getItem('classroom_refresh_token') || '';
+        // Refresh check path: retrieve from sessionStorage safely
+        try {
+          const savedRoom = sessionStorage.getItem('active_room_name') || '';
+          let savedAccess = sessionStorage.getItem('classroom_access_token') || '';
+          const savedRefresh = sessionStorage.getItem('classroom_refresh_token') || '';
 
-        if (savedRoom && savedAccess && savedRefresh) {
-          // Verify access token lifetime client-side
-          const decodedAccess = decodeJwt(savedAccess);
-          const buffer = 10 * 1000; // 10s buffer
+          if (savedRoom && savedAccess && savedRefresh) {
+            // Verify access token lifetime client-side
+            const decodedAccess = decodeJwt(savedAccess);
+            const buffer = 10 * 1000; // 10s buffer
 
-          if (decodedAccess && decodedAccess.exp * 1000 > Date.now() + buffer) {
-            setRoomName(savedRoom);
-            setAccessToken(savedAccess);
-            setIsClassroomMode(true);
-          } else {
-            // Access token expired, attempt token renewal
-            try {
-              const res = await fetch('/api/renew-session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken: savedRefresh }),
-              });
-
-              if (!res.ok) throw new Error('Refresh expired or session ended');
-
-              const data = await res.json();
-              sessionStorage.setItem('classroom_access_token', data.accessToken);
+            if (decodedAccess && decodedAccess.exp * 1000 > Date.now() + buffer) {
               setRoomName(savedRoom);
-              setAccessToken(data.accessToken);
+              setAccessToken(savedAccess);
               setIsClassroomMode(true);
-            } catch (err) {
-              console.warn('Session renewal failed:', err);
-              handleClearSession();
+            } else {
+              // Access token expired, attempt token renewal
+              try {
+                const res = await fetch('/api/renew-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refreshToken: savedRefresh }),
+                });
+
+                if (!res.ok) throw new Error('Refresh expired or session ended');
+
+                const data = await res.json();
+                try {
+                  sessionStorage.setItem('classroom_access_token', data.accessToken);
+                } catch (storageErr) {
+                  console.warn('sessionStorage write blocked or failed:', storageErr);
+                }
+                setRoomName(savedRoom);
+                setAccessToken(data.accessToken);
+                setIsClassroomMode(true);
+              } catch (err) {
+                console.warn('Session renewal failed:', err);
+                handleClearSession();
+                redirectToLMS();
+                return;
+              }
+            }
+          } else {
+            // No active tokens or code. If on subdomain, redirect to LMS dashboard
+            const hostname = window.location.hostname;
+            if (hostname.startsWith('live.')) {
               redirectToLMS();
               return;
             }
           }
-        } else {
-          // No active tokens or code. If on subdomain, redirect to LMS dashboard
-          const hostname = window.location.hostname;
-          if (hostname.startsWith('live.')) {
-            redirectToLMS();
-            return;
-          }
+        } catch (storageErr) {
+          console.warn('sessionStorage read blocked or failed:', storageErr);
         }
       }
       setTokenResolved(true);
@@ -316,9 +328,13 @@ function HomeContent() {
   };
 
   const handleClearSession = () => {
-    sessionStorage.removeItem('classroom_access_token');
-    sessionStorage.removeItem('classroom_refresh_token');
-    sessionStorage.removeItem('active_room_name');
+    try {
+      sessionStorage.removeItem('classroom_access_token');
+      sessionStorage.removeItem('classroom_refresh_token');
+      sessionStorage.removeItem('active_room_name');
+    } catch (err) {
+      console.warn('sessionStorage remove blocked or failed:', err);
+    }
     setIsClassroomMode(false);
   };
 

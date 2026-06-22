@@ -6,12 +6,14 @@ interface UseStrokeCaptureProps {
   editor: any;
   localParticipant: any;
   isWritable: boolean;
+  activeStrokeIdRef?: React.MutableRefObject<string | null>;
 }
 
 export function useStrokeCapture({
   editor,
   localParticipant,
   isWritable,
+  activeStrokeIdRef,
 }: UseStrokeCaptureProps) {
   const isDrawingRef = useRef(false);
   const strokeIdRef = useRef<string | null>(null);
@@ -77,6 +79,9 @@ export function useStrokeCapture({
 
         if (isDrawTool) {
           strokeIdRef.current = `${localParticipant.identity}-${Date.now()}`;
+          if (activeStrokeIdRef) {
+            activeStrokeIdRef.current = strokeIdRef.current;
+          }
           const color = editor.getStyleForNextShape(DefaultColorStyle);
           const size = editor.getStyleForNextShape(DefaultSizeStyle);
           // Highlight tool uses semi-transparency; draw uses opaque
@@ -164,6 +169,9 @@ export function useStrokeCapture({
         });
 
         strokeIdRef.current = null;
+        if (activeStrokeIdRef) {
+          activeStrokeIdRef.current = null;
+        }
       }
       lastPointRef.current = null;
     };
@@ -177,5 +185,5 @@ export function useStrokeCapture({
         endStroke();
       }
     };
-  }, [editor, localParticipant, isWritable]);
+  }, [editor, localParticipant, isWritable, activeStrokeIdRef]);
 }

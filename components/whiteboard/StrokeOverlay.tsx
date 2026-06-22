@@ -26,6 +26,7 @@ interface ActiveStroke {
   ended: boolean;
   endTime: number | null;
   bufferDelay: number;
+  skipFade?: boolean;
 }
 
 interface ActiveEraser {
@@ -183,6 +184,30 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
     return () => room.off('dataReceived', handleDataReceived);
   }, [room, localParticipant, editor]);
 
+  // ─── Watch tldraw store for permanent shape creation to instantly clear overlay ───
+  useEffect(() => {
+    if (!editor) return;
+
+    const cleanupStoreListener = editor.store.listen((event: any) => {
+      if ((event.source === 'remote' || event.source === 'user') && event.changes.added) {
+        Object.values(event.changes.added).forEach((shape: any) => {
+          const strokeId = shape.meta?.strokeId;
+          if (strokeId) {
+            const activeStroke = strokesRef.current.get(strokeId);
+            if (activeStroke) {
+              activeStroke.ended = true;
+              activeStroke.skipFade = true;
+            }
+          }
+        });
+      }
+    }, { scope: 'document' });
+
+    return () => {
+      cleanupStoreListener();
+    };
+  }, [editor]);
+
   // ─── requestAnimationFrame render loop ─────────────────────────────────────
   useEffect(() => {
     let rafId: number;
@@ -247,9 +272,9 @@ export default function StrokeOverlay({ editor, room, localParticipant }: Stroke
         if (playPoints.length === 0) return;
 
         let alpha = 1.0;
-        if (stroke.ended && stroke.endTime !== null) {
-          const elapsed = now - stroke.endTime;
-          if (elapsed >= 300) {
+        if (stroke.ended) {
+          const elapsed = stroke.endTime !== null ? (now - stroke.endTime) : 0;
+          if (stroke.skipFade === true || elapsed >= 300) {
             strokesRef.current.delete(strokeId);
             return;
           }

@@ -12,22 +12,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Read from localStorage on mount
-    const storedToken = localStorage.getItem('lms_auth_token');
-    if (storedToken) {
-      const decoded = decodeJwt(storedToken);
-      if (decoded && decoded.exp * 1000 > Date.now()) {
-        setToken(storedToken);
-        setUser({
-          id: decoded.userId,
-          name: decoded.name,
-          email: decoded.email,
-          role: decoded.role,
-        });
-      } else {
-        // Expired or invalid
-        localStorage.removeItem('lms_auth_token');
+    // Read from localStorage on mount safely
+    try {
+      const storedToken = localStorage.getItem('lms_auth_token');
+      if (storedToken) {
+        const decoded = decodeJwt(storedToken);
+        if (decoded && decoded.exp * 1000 > Date.now()) {
+          setToken(storedToken);
+          setUser({
+            id: decoded.userId,
+            name: decoded.name,
+            email: decoded.email,
+            role: decoded.role,
+          });
+        } else {
+          // Expired or invalid
+          try {
+            localStorage.removeItem('lms_auth_token');
+          } catch (err) {
+            console.warn('Failed to remove expired token from localStorage:', err);
+          }
+        }
       }
+    } catch (err) {
+      console.warn('LocalStorage read blocked or failed:', err);
     }
     setIsLoading(false);
   }, []);
@@ -47,7 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const { token: receivedToken, user: userData } = await response.json();
-      localStorage.setItem('lms_auth_token', receivedToken);
+      try {
+        localStorage.setItem('lms_auth_token', receivedToken);
+      } catch (err) {
+        console.warn('LocalStorage write blocked or failed:', err);
+      }
       setToken(receivedToken);
       setUser(userData);
       setIsLoading(false);
@@ -58,7 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('lms_auth_token');
+    try {
+      localStorage.removeItem('lms_auth_token');
+    } catch (err) {
+      console.warn('LocalStorage remove blocked or failed:', err);
+    }
     setToken(null);
     setUser(null);
     router.push('/');
