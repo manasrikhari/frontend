@@ -14,6 +14,7 @@ import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import WhiteboardWrapper from './WhiteboardWrapper';
 import { decodeJwt } from '@/lib/api';
+import { useClassroomSession } from '@/hooks/useClassroomSession';
 import type { IceServer } from '@/lib/api';
 import WhiteboardPageControls from './classroom/WhiteboardPageControls';
 import { getPagesSorted } from './classroom/whiteboard-helpers';
@@ -424,11 +425,15 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   // Save whiteboard permissions/state to localStorage for teachers
   useEffect(() => {
     if (!isTeacher || typeof window === 'undefined') return;
-    localStorage.setItem(`whiteboard_active_${roomName}`, JSON.stringify(showWhiteboard));
-    localStorage.setItem(`global_whiteboard_allowed_${roomName}`, JSON.stringify(globalWhiteboardAllowed));
-    localStorage.setItem(`global_screenshare_allowed_${roomName}`, JSON.stringify(globalScreenShareAllowed));
-    localStorage.setItem(`allowed_whiteboard_students_${roomName}`, JSON.stringify(allowedWhiteboardStudents));
-    localStorage.setItem(`allowed_screenshare_students_${roomName}`, JSON.stringify(allowedScreenShareStudents));
+    try {
+      localStorage.setItem(`whiteboard_active_${roomName}`, JSON.stringify(showWhiteboard));
+      localStorage.setItem(`global_whiteboard_allowed_${roomName}`, JSON.stringify(globalWhiteboardAllowed));
+      localStorage.setItem(`global_screenshare_allowed_${roomName}`, JSON.stringify(globalScreenShareAllowed));
+      localStorage.setItem(`allowed_whiteboard_students_${roomName}`, JSON.stringify(allowedWhiteboardStudents));
+      localStorage.setItem(`allowed_screenshare_students_${roomName}`, JSON.stringify(allowedScreenShareStudents));
+    } catch (e) {
+      console.warn('[VideoRoom] Failed to save whiteboard state to localStorage:', e);
+    }
   }, [
     isTeacher,
     roomName,
@@ -719,7 +724,13 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       }
 
       // 2. Call backend to mark class as completed and terminate LiveKit room
-      const accessToken = sessionStorage.getItem('classroom_access_token');
+      let accessToken = null;
+      try {
+        accessToken = sessionStorage.getItem('classroom_access_token');
+      } catch (e) {
+        console.warn('[VideoRoom] Failed to read classroom_access_token from sessionStorage:', e);
+      }
+
       if (batchId && accessToken) {
         await fetch('/api/end-class', {
           method: 'POST',
@@ -738,11 +749,15 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     } finally {
       setIsExporting(false);
       if (typeof window !== 'undefined') {
-        localStorage.removeItem(`whiteboard_active_${roomName}`);
-        localStorage.removeItem(`global_whiteboard_allowed_${roomName}`);
-        localStorage.removeItem(`global_screenshare_allowed_${roomName}`);
-        localStorage.removeItem(`allowed_whiteboard_students_${roomName}`);
-        localStorage.removeItem(`allowed_screenshare_students_${roomName}`);
+        try {
+          localStorage.removeItem(`whiteboard_active_${roomName}`);
+          localStorage.removeItem(`global_whiteboard_allowed_${roomName}`);
+          localStorage.removeItem(`global_screenshare_allowed_${roomName}`);
+          localStorage.removeItem(`allowed_whiteboard_students_${roomName}`);
+          localStorage.removeItem(`allowed_screenshare_students_${roomName}`);
+        } catch (e) {
+          console.warn('[VideoRoom] Failed to clean up localStorage keys:', e);
+        }
       }
       onLeave();
     }
@@ -1415,91 +1430,7 @@ export default function VideoRoom({
   audioEnabled = true,
   videoEnabled = true,
 }: VideoRoomProps) {
-  const [currentToken, setCurrentToken] = useState(token);
-
-  useEffect(() => {
-    setCurrentToken(token);
-  }, [token]);
-
-  // Proactive token refresh loop for Classroom Access Token and LiveKit connection token
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    let isUnmounted = false;
-
-    const scheduleRefresh = () => {
-      if (isUnmounted) return;
-
-      const accessToken = sessionStorage.getItem('classroom_access_token') || sessionToken;
-      if (!accessToken) return;
-
-      const decoded = decodeJwt(accessToken);
-      if (!decoded || !decoded.exp) return;
-
-      const expiryTime = decoded.exp * 1000;
-      const refreshBuffer = 5 * 60 * 1000; // 5 minutes before expiry
-      const delay = expiryTime - Date.now() - refreshBuffer;
-
-      // Schedule the refresh call (or execute immediately if already past the buffer time)
-      timeoutId = setTimeout(() => {
-        refreshInterval(0);
-      }, Math.max(0, delay));
-    };
-
-    const refreshInterval = async (retryCount = 0) => {
-      if (isUnmounted) return;
-
-      try {
-        const savedRefresh = sessionStorage.getItem('classroom_refresh_token') || '';
-        if (!savedRefresh) return;
-
-        // Step 1: Renew the Classroom Access Token
-        const res = await fetch('/api/renew-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: savedRefresh }),
-        });
-
-        if (!res.ok) throw new Error('Failed to renew session token');
-        const data = await res.json();
-        
-        sessionStorage.setItem('classroom_access_token', data.accessToken);
-
-        // Step 2: Renew the LiveKit connection token using the new access token
-        const tokenRes = await fetch('/api/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomName, sessionToken: data.accessToken }),
-        });
-        if (!tokenRes.ok) throw new Error('Failed to fetch new LiveKit token');
-
-        const tokenData = await tokenRes.json();
-        
-        if (!isUnmounted) {
-          setCurrentToken(tokenData.token);
-          console.log('[TokenRefresh] Successfully renewed Classroom Access Token and LiveKit token proactively.');
-          // Schedule the next refresh
-          scheduleRefresh();
-        }
-      } catch (err) {
-        console.error('[TokenRefresh] Failed to renew tokens proactively:', err);
-        if (isUnmounted) return;
-
-        if (retryCount < 1) {
-          console.log('[TokenRefresh] Retrying renewal in 30 seconds...');
-          timeoutId = setTimeout(() => refreshInterval(retryCount + 1), 30000);
-        } else {
-          alert('Warning: Your session credentials could not be automatically renewed. You might experience a disconnection shortly.');
-        }
-      }
-    };
-
-    scheduleRefresh();
-
-    return () => {
-      isUnmounted = true;
-      clearTimeout(timeoutId);
-    };
-  }, [roomName, sessionToken]);
+  const currentToken = useClassroomSession(token, roomName, sessionToken);
 
   // Create stable Room instance to prevent reconnection loops in React strict mode
   const room = useMemo(() => {

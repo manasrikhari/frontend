@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ParticipantTile, TrackReferenceOrPlaceholder } from '@livekit/components-react';
+import { TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users } from 'lucide-react';
+import CustomVideoTile from './CustomVideoTile';
 
 interface StudentSidebarProps {
   showWhiteboard: boolean;
@@ -51,10 +52,14 @@ function LazyParticipantTile({ trackRef }: { trackRef: TrackReferenceOrPlacehold
       className="aspect-video w-full relative rounded-xl overflow-hidden border border-white/5 bg-surface-light/10 shadow-md group flex items-center justify-center"
     >
       {isIntersecting ? (
-        <ParticipantTile trackRef={trackRef} className="w-full h-full" />
+        <CustomVideoTile 
+          trackRef={trackRef} 
+          variant="sidebar" 
+          hideActions={true} 
+        />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#111827]/80 text-[#C2CCDE] select-none p-4 text-center">
-          <span className="text-xs font-semibold max-w-[90%] truncate">{name}</span>
+        <div className="absolute inset-0 bg-[#0d111d] flex items-center justify-center select-none p-4 text-center">
+          <span className="text-xs font-bold text-white/90 truncate max-w-[90%] font-sans">{name}</span>
         </div>
       )}
     </div>
