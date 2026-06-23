@@ -19,8 +19,8 @@ interface MobileControlsProps {
   handleEndClass: () => void;
   onLeave: () => void;
   exportedPdfUrl: string | null;
-  activeRightPanelTab: 'chat' | 'participants' | null;
-  setActiveRightPanelTab: (tab: 'chat' | 'participants' | null) => void;
+  activeRightPanelTab: 'chat' | 'participants' | 'doubt' | 'summary' | null;
+  setActiveRightPanelTab: (tab: 'chat' | 'participants' | 'doubt' | 'summary' | null) => void;
   isWhiteboardAllowed?: boolean;
   isScreenShareAllowed?: boolean;
   layoutMode: 'auto' | 'tiled' | 'spotlight' | 'sidebar' | 'focus';

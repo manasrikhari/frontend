@@ -211,6 +211,9 @@ function HomeContent() {
             sessionStorage.setItem('classroom_access_token', data.accessToken);
             sessionStorage.setItem('classroom_refresh_token', data.refreshToken);
             sessionStorage.setItem('active_room_name', data.roomId);
+            if (data.startedAtMs) {
+              sessionStorage.setItem('classroom_session_started_at', data.startedAtMs.toString());
+            }
           } catch (storageErr) {
             console.warn('sessionStorage write blocked or failed:', storageErr);
           }

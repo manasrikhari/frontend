@@ -227,3 +227,8 @@ body {
   }
 }
 
+/* Disable browser default touch actions inside Tldraw canvas container */
+.tl-container {
+  touch-action: none !important;
+}
+

@@ -13,6 +13,7 @@ import {
 import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import WhiteboardWrapper from './WhiteboardWrapper';
+import { useAudioTranscriber } from '../hooks/useAudioTranscriber';
 import { decodeJwt } from '@/lib/api';
 import { useClassroomSession } from '@/hooks/useClassroomSession';
 import type { IceServer } from '@/lib/api';
@@ -81,6 +82,71 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const connectionState = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const isTeacher = localParticipant?.metadata === 'teacher';
+
+  const [startedAtMs] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const val = sessionStorage.getItem('classroom_session_started_at');
+      if (val) return parseInt(val, 10);
+    }
+    return Date.now();
+  });
+
+  const participantId = localParticipant?.identity || '';
+  const participantName = localParticipant?.name || userName || 'Participant';
+  const participantRole = isTeacher ? 'teacher' : 'student';
+
+  useAudioTranscriber({
+    sessionId: roomName,
+    participantId,
+    role: participantRole,
+    name: participantName,
+    startedAtMs,
+    isEnabled: connectionState === 'connected' && isMicrophoneEnabled,
+  });
+
+  const [topicNotes, setTopicNotes] = useState('');
+
+  // Fetch and poll the active class topic notes
+  useEffect(() => {
+    const fetchTopic = async () => {
+      try {
+        const accessToken = sessionStorage.getItem('classroom_access_token');
+        if (!accessToken) return;
+        const res = await fetch(`/api/summary/${roomName}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTopicNotes(data.topicNotes || '');
+        }
+      } catch (err) {
+        console.error('Failed to fetch topic notes:', err);
+      }
+    };
+
+    fetchTopic();
+    // Poll for topic updates every 10 seconds, particularly for students
+    const interval = setInterval(fetchTopic, 10000);
+    return () => clearInterval(interval);
+  }, [roomName]);
+
+  const handleUpdateTopic = async (newTopic: string) => {
+    setTopicNotes(newTopic);
+    try {
+      const accessToken = sessionStorage.getItem('classroom_access_token');
+      if (!accessToken) return;
+      await fetch(`/api/transcript/${roomName}/topic`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ topicNotes: newTopic })
+      });
+    } catch (err) {
+      console.error('Failed to update topic notes:', err);
+    }
+  };
 
   useEffect(() => {
     if (connectionState === 'connected') {
@@ -290,7 +356,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   }, [sessionToken]);
 
   // Chat & Participants states
-  const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | null>(null);
+  const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | 'doubt' | 'summary' | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
   const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(() =>
@@ -1156,6 +1222,28 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             onClick={handleViewportClick}
           >
             
+            {/* Floating Class Topic Pill */}
+            <div className="absolute top-4 left-4 z-[50]">
+              <div className="bg-[#090d1a]/85 backdrop-blur-xl border border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-black/25">
+                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 select-none">
+                  Topic
+                </span>
+                {isTeacher ? (
+                  <input
+                    type="text"
+                    value={topicNotes}
+                    onChange={(e) => handleUpdateTopic(e.target.value)}
+                    placeholder="Set class topic..."
+                    className="bg-transparent border-none outline-none text-xs font-semibold text-white/95 placeholder-white/20 w-36 focus:ring-0 p-0"
+                  />
+                ) : (
+                  <span className="text-xs font-semibold text-white/90 truncate max-w-[150px] select-none">
+                    {topicNotes || 'Class in Progress'}
+                  </span>
+                )}
+              </div>
+            </div>
+            
             {!(isMobile && !layoutLandscape && mobileControlsVisible) && (
               <FloatingTeacherTile
                 teacherTrack={teacherTrack}
@@ -1313,6 +1401,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             onToggleGlobalPermission={handleToggleGlobalPermission}
             onToggleStudentPermission={handleToggleStudentPermission}
             isMobile={isMobile}
+            isTeacher={isTeacher}
+            editor={editor}
           />
         )}
 
