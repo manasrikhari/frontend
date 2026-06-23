@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ParticipantTile, TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import { X } from 'lucide-react';
+import { IconX } from '@tabler/icons-react';
 
 interface FloatingTeacherTileProps {
   teacherTrack: TrackReferenceOrPlaceholder | undefined;
@@ -142,10 +142,10 @@ export default function FloatingTeacherTile({
           e.stopPropagation();
           setIsVisible(false);
         }}
-        className="absolute top-2 right-2 z-[300] w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white flex items-center justify-center cursor-pointer transition-colors border border-white/10 opacity-0 group-hover:opacity-100 touch-visible"
+        className="absolute top-2 right-2 z-30 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white flex items-center justify-center cursor-pointer transition-colors border border-white/10 opacity-0 group-hover:opacity-100 touch-visible"
         title="Hide tile"
       >
-        <X className="w-3.5 h-3.5" />
+        <IconX className="w-3.5 h-3.5" />
       </button>
 
       <div className="w-full h-full pointer-events-none">

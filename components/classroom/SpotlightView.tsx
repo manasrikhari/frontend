@@ -1,3 +1,4 @@
+/*
 'use client';
 
 import React from 'react';
@@ -39,4 +40,8 @@ export default function SpotlightView({
       )}
     </div>
   );
+}
+*/
+export default function SpotlightView() {
+  return null;
 }

@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Lock, LayoutGrid, Maximize2, Columns, Eye, Target } from 'lucide-react';
+import { 
+  IconLock, 
+  IconLayoutDashboard, 
+  IconTableSpark, 
+  IconLayoutGrid, 
+  IconLayoutSidebarRight, 
+  IconRectangle, 
+  IconChalkboard, 
+  IconChalkboardOff, 
+  IconPhone 
+} from '@tabler/icons-react';
 import Tooltip from './Tooltip';
 
 interface DesktopControlsProps {
@@ -147,7 +157,7 @@ export default function DesktopControls({
   }, [showDeviceSettings]);
 
   return (
-    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-between z-[999999] select-none transition-all duration-300 controls-bar relative translate-y-0 opacity-100">
+    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-between z-40 select-none transition-all duration-300 controls-bar relative translate-y-0 opacity-100">
       {/* Left side: Class details & time */}
       <div className="hidden md:flex flex-col min-w-[120px] lg:min-w-[200px]">
         <span className="font-bold text-sm text-white tracking-wider">OpenGrapes Live</span>
@@ -294,7 +304,7 @@ export default function DesktopControls({
               </svg>
               {!isScreenShareAllowed && (
                 <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                  <Lock className="w-3 h-3" />
+                  <IconLock className="w-3 h-3" />
                 </div>
               )}
             </button>
@@ -322,78 +332,14 @@ export default function DesktopControls({
                   : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
               }`}
             >
-              <svg
-                className="w-8 h-8"
-                viewBox="0 0 24 25"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1}
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z"
-                  fill="currentColor"
-                  fillOpacity={0.25}
-                  stroke="none"
-                />
-                <path
-                  d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <g filter="url(#filter0_d_5_489)">
-                  <path
-                    d="M12.8077 6.46792C13.4209 5.67466 14.5913 5.60007 15.3003 6.30905C16.0092 7.01795 15.9347 8.18816 15.1416 8.80146L11.3602 11.7258C11.2889 11.7809 11.1879 11.7744 11.1242 11.7108L9.89915 10.4857C9.83548 10.422 9.82904 10.321 9.88411 10.2497L12.8077 6.46792Z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M11.8477 11.0978L10.5112 9.76138" strokeLinecap="round" strokeLinejoin="round" />
-                  <path
-                    d="M9.90984 10.4964L11.1126 11.6992C11.1544 11.741 11.1725 11.8008 11.1609 11.8587L11.0203 12.5617C10.9123 13.1017 10.5201 13.5407 9.99563 13.7085L7.77427 14.4193C7.60846 14.4724 7.4269 14.4284 7.3038 14.3053C7.18069 14.1821 7.13668 14.0006 7.18974 13.8348L7.90057 11.6134C8.06839 11.089 8.50736 10.6967 9.04731 10.5887L9.75035 10.4481C9.80824 10.4366 9.86809 10.4547 9.90984 10.4964Z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M7.3038 14.3052L9.04117 12.5679" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-                  <path
-                    d="M8.94331 12.2028C8.868 12.4838 9.1252 12.741 9.40627 12.6657V12.6657C9.68734 12.5904 9.78148 12.2391 9.57572 12.0333V12.0333C9.36996 11.8276 9.01863 11.9217 8.94331 12.2028V12.2028Z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M7.04752 15.84H9.09634C9.38875 15.84 9.67211 15.7386 9.89813 15.5531L10.4936 15.0644C10.6135 14.9659 10.7863 14.9659 10.9063 15.0644L11.5024 15.5537C11.728 15.7388 12.0108 15.84 12.3026 15.84H12.4144C12.8797 15.84 13.2948 15.5478 13.4519 15.1099L14.4046 12.4537C14.4332 12.3742 14.5456 12.3742 14.5741 12.4537L15.3899 14.7281C15.6292 15.3951 16.2614 15.84 16.97 15.84H17.1275"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </g>
-                <defs>
-                  <filter
-                    id="filter0_d_5_489"
-                    x="1.70001"
-                    y="4.5"
-                    width="20.6"
-                    height="20.6"
-                    filterUnits="userSpaceOnUse"
-                    colorInterpolationFilters="sRGB"
-                  >
-                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                    <feColorMatrix
-                      in="SourceAlpha"
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                      result="hardAlpha"
-                    />
-                    <feOffset dy={4} />
-                    <feGaussianBlur stdDeviation={2} />
-                    <feComposite in2="hardAlpha" operator="out" />
-                    <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0" />
-                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_5_489" />
-                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_5_489" result="shape" />
-                  </filter>
-                </defs>
-              </svg>
+              {showWhiteboard ? (
+                <IconChalkboard className="w-8 h-8" />
+              ) : (
+                <IconChalkboardOff className="w-8 h-8" />
+              )}
               {!isWhiteboardAllowed && (
                 <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                  <Lock className="w-3 h-3" />
+                  <IconLock className="w-3 h-3" />
                 </div>
               )}
             </button>
@@ -411,13 +357,13 @@ export default function DesktopControls({
                   : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#ffffff]'
               }`}
             >
-              <LayoutGrid className="w-5.5 h-5.5" />
+              <IconLayoutDashboard className="w-5.5 h-5.5" />
             </button>
           </Tooltip>
 
           {/* Adjust View Dropdown Menu */}
           {showLayoutMenu && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-2 border-b border-white/5 select-none text-left">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
               </div>
@@ -432,7 +378,7 @@ export default function DesktopControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Eye className="w-4 h-4" />
+                  <IconTableSpark className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Auto (dynamic)</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Adapts to active content</span>
@@ -450,7 +396,7 @@ export default function DesktopControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <LayoutGrid className="w-4 h-4" />
+                  <IconLayoutGrid className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Tiled</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">All participants in grid</span>
@@ -458,6 +404,7 @@ export default function DesktopControls({
                 </div>
               </button>
 
+              {/* Spotlight view is commented out
               <button
                 onClick={() => {
                   setLayoutMode('spotlight');
@@ -475,6 +422,7 @@ export default function DesktopControls({
                   </div>
                 </div>
               </button>
+              */}
 
               <button
                 onClick={() => {
@@ -486,7 +434,7 @@ export default function DesktopControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Columns className="w-4 h-4" />
+                  <IconLayoutSidebarRight className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Sidebar</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">
@@ -514,7 +462,7 @@ export default function DesktopControls({
                 title={!showSplitLayout ? 'Focus View (Only available during presentations)' : ''}
               >
                 <div className="flex items-center gap-3">
-                  <Target className="w-4 h-4" />
+                  <IconRectangle className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Focus View</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">
@@ -566,7 +514,7 @@ export default function DesktopControls({
 
           {/* Devices Settings Menu */}
           {showDeviceSettings && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3.5 py-2 border-b border-white/5 flex items-center justify-between select-none">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Settings</span>
                 {isTeacher && (
@@ -647,21 +595,7 @@ export default function DesktopControls({
             onClick={onLeave}
             className="w-16 h-12 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center text-white transition-colors duration-200 cursor-pointer shadow-lg"
           >
-            <svg
-              className="w-7 h-7"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M4.8 12H19.2M4.8 12C4.8 7.2 8.4 3.6 12 3.6M4.8 12C4.8 16.8 8.4 20.4 12 20.4M19.2 12C19.2 7.2 15.6 3.6 12 3.6M19.2 12C19.2 16.8 15.6 20.4 12 20.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M7.2 15.6L4.8 12L7.2 8.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <IconPhone className="w-7 h-7" />
           </button>
         </Tooltip>
       </div>

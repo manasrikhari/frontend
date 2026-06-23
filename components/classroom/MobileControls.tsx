@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, LayoutGrid, Maximize2, Columns, Eye, Target } from 'lucide-react';
+import { 
+  IconLayoutDashboard, 
+  IconTableSpark, 
+  IconLayoutGrid, 
+  IconLayoutSidebarRight, 
+  IconRectangle, 
+  IconChalkboard, 
+  IconChalkboardOff, 
+  IconPhone 
+} from '@tabler/icons-react';
 import Tooltip from './Tooltip';
 
 interface MobileControlsProps {
@@ -128,7 +137,7 @@ export default function MobileControls({
         }
         onHideControls();
       }}
-      className={`w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 py-4 flex items-center justify-center z-[999999] select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
+      className={`w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 py-4 flex items-center justify-center z-40 select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
         mobileControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
       }`}
     >
@@ -236,13 +245,13 @@ export default function MobileControls({
                   : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#ffffff]"
               }`}
             >
-              <LayoutGrid className="w-5.5 h-5.5" />
+              <IconLayoutDashboard className="w-5.5 h-5.5" />
             </button>
           </Tooltip>
 
           {/* Adjust View Dropdown Menu */}
           {showLayoutMenu && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-2 border-b border-white/5 select-none text-left">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
               </div>
@@ -257,7 +266,7 @@ export default function MobileControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Eye className="w-4 h-4" />
+                  <IconTableSpark className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Auto (dynamic)</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Adapts to active content</span>
@@ -275,7 +284,7 @@ export default function MobileControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <LayoutGrid className="w-4 h-4" />
+                  <IconLayoutGrid className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Tiled</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">All participants in grid</span>
@@ -283,6 +292,7 @@ export default function MobileControls({
                 </div>
               </button>
 
+              {/* Spotlight view is commented out
               <button
                 onClick={() => {
                   setLayoutMode('spotlight');
@@ -300,6 +310,7 @@ export default function MobileControls({
                   </div>
                 </div>
               </button>
+              */}
 
               <button
                 onClick={() => {
@@ -311,7 +322,7 @@ export default function MobileControls({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Columns className="w-4 h-4" />
+                  <IconLayoutSidebarRight className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Sidebar</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Featured center with side list</span>
@@ -337,7 +348,7 @@ export default function MobileControls({
                 title={!showSplitLayout ? "Focus View (Only available during presentations)" : ""}
               >
                 <div className="flex items-center gap-3">
-                  <Target className="w-4 h-4" />
+                  <IconRectangle className="w-4 h-4" />
                   <div className="flex flex-col">
                     <span>Focus View</span>
                     <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Whiteboard/screen share only</span>
@@ -397,7 +408,7 @@ export default function MobileControls({
 
           {/* Dropdown Settings Menu */}
           {showDeviceSettings && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[999999] animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
               {/* Mobile-only: Screen Share, Whiteboard, Chat, and Participants options */}
               <div className="flex flex-col gap-1 border-b border-white/5 pb-1 mb-1">
                 {/* Screen Share */}
@@ -459,26 +470,11 @@ export default function MobileControls({
                     showWhiteboard ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
                   }`}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 25"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2L1.5 5.4001Z"
-                      fill="currentColor"
-                      fillOpacity={showWhiteboard ? 0.4 : 0.25}
-                      stroke="none"
-                    />
-                    <path
-                      d="M12 19.8H18.3M12 19.8H5.7M12 19.8V17.4M1.5 16.2L1.5 5.4001C1.5 4.73732 2.03733 4.20004 2.70011 4.2001L21.3001 4.20185C21.9628 4.20191 22.5 4.73915 22.5 5.40185V16.2C22.5 16.8627 21.9627 17.4 21.3 17.4H2.7C2.03726 17.4 1.5 16.8627 1.5 16.2Z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  {showWhiteboard ? (
+                    <IconChalkboard className="w-5 h-5" />
+                  ) : (
+                    <IconChalkboardOff className="w-5 h-5" />
+                  )}
                   <span>Whiteboard</span>
                 </button>
 
@@ -827,22 +823,7 @@ export default function MobileControls({
             onClick={onLeave}
             className="relative group w-15 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg"
           >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M16.2426 14.7441C16.1035 14.6935 15.9638 14.6454 15.8234 14.5999C15.2443 14.4123 14.9034 13.7877 15.1171 13.2177C15.4113 12.4332 14.8314 11.5964 13.9935 11.5964H10.2567C9.4189 11.5964 8.83896 12.4332 9.13315 13.2177C9.33571 13.7579 9.0062 14.349 8.4534 14.514C8.2199 14.5836 7.98794 14.6604 7.75785 14.7441C7.29867 14.9112 6.85182 15.1046 6.4192 15.3225C5.7059 15.6819 4.79793 15.3721 4.55111 14.6125L3.90067 12.6106C3.79359 12.2811 3.8866 11.9171 4.15205 11.6944C6.38599 9.81989 9.20895 8.79242 12.1251 8.79242C15.0413 8.79242 17.8643 9.81989 20.0982 11.6944C20.3639 11.9173 20.4569 12.2815 20.3498 12.6113L19.664 14.7218C19.4141 15.4909 18.488 15.7971 17.7722 15.4208C17.2805 15.1623 16.7697 14.9359 16.2426 14.7441Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <IconPhone className="w-8 h-8" />
           </button>
         </Tooltip>
       </div>

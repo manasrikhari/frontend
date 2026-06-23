@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Users } from 'lucide-react';
+import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import CustomVideoTile from './CustomVideoTile';
+import Tooltip from './Tooltip';
 
 interface StudentSidebarProps {
   showWhiteboard: boolean;
@@ -90,23 +91,21 @@ export default function StudentSidebar({
           >
             {/* Toggle Pull Handle on Desktop/Tablet left border */}
             <button
-              onClick={onToggle}
-              className="absolute top-1/2 -left-3.5 -translate-y-1/2 w-7 h-7 rounded-full bg-[#111827] border border-white/10 flex items-center justify-center text-[#C2CCDE] hover:text-white cursor-pointer hover:bg-surface-light shadow-lg z-50 transition-colors"
-            >
-              {isOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
+                onClick={onToggle}
+                className={`absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#111827] border border-white/10 flex items-center justify-center text-[#C2CCDE] hover:text-white cursor-pointer hover:bg-surface-light shadow-lg z-50 transition-all duration-200 ${
+                  isOpen ? '-left-4' : '-left-4 hover:-translate-x-1.5'
+                }`}
+              >
+                {isOpen ? (
+                  <IconLayoutSidebarLeftCollapse className="w-5 h-5" />
+                ) : (
+                  <IconLayoutSidebarLeftExpand className="w-5 h-5" />
+                )}
+              </button>
 
             {isOpen && (
               <div className="flex flex-col h-full overflow-hidden">
-                {/* Header */}
-                <div className="h-16 px-5 border-b border-white/10 flex justify-between items-center bg-surface/30 select-none">
-                  <h3 className="font-semibold text-sm text-white/90">
-                    {showWhiteboard ? 'Meeting View' : 'Participants'}
-                  </h3>
-                  <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20 font-bold uppercase tracking-wider">
-                    {sidebarStudents.length + (teacherTrack ? 1 : 0)} Active
-                  </span>
-                </div>
+
 
                 {/* Scrollable list */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
@@ -127,16 +126,6 @@ export default function StudentSidebar({
               </div>
             )}
           </div>
-
-          {/* Floating expand button when Desktop Sidebar is collapsed */}
-          <button
-            onClick={onToggle}
-            className={`hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#111827] border border-white/10 items-center justify-center text-[#C2CCDE] hover:text-white cursor-pointer shadow-2xl z-[90] transition-opacity duration-200 ${
-              isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-          </button>
         </>
       )}
 

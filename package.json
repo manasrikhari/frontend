@@ -11,6 +11,7 @@
   "dependencies": {
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",
+    "@tabler/icons-react": "^3.44.0",
     "@tldraw/sync": "^5.1.0",
     "jspdf": "^4.2.1",
     "livekit-client": "^2.19.2",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GripVertical, Plus, Maximize2, Upload } from 'lucide-react';
+import { IconGripVertical, IconPlus, IconMaximize, IconUpload } from '@tabler/icons-react';
 import { addHandDrawnPage, importPdf, importImage, getPagesSorted } from './whiteboard-helpers';
 
 interface WhiteboardPageControlsProps {
@@ -99,7 +99,7 @@ export default function WhiteboardPageControls({ editor, isTeacher, isWritable }
         className="flex items-center gap-1.5 text-[11px] font-sans font-bold tracking-wider uppercase text-zinc-500 pl-1.5 pr-2.5 border-r border-zinc-300 h-6 select-none cursor-grab active:cursor-grabbing touch-none"
         title="Drag to reposition"
       >
-        <GripVertical className="w-3.5 h-3.5 text-zinc-400" />
+        <IconGripVertical className="w-3.5 h-3.5 text-zinc-400" />
         Pages
       </div>
       
@@ -107,7 +107,7 @@ export default function WhiteboardPageControls({ editor, isTeacher, isWritable }
         onClick={() => addHandDrawnPage(editor)}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-950 rounded-xl text-xs font-semibold transition-all cursor-pointer font-sans border border-zinc-300 shadow-sm"
       >
-        <Plus className="w-3.5 h-3.5 text-zinc-950" />
+        <IconPlus className="w-3.5 h-3.5 text-zinc-950" />
         Add Page
       </button>
 
@@ -116,7 +116,7 @@ export default function WhiteboardPageControls({ editor, isTeacher, isWritable }
         className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-950 rounded-xl text-xs font-semibold transition-all cursor-pointer font-sans border border-zinc-300 shadow-sm"
         title="Zoom to Fit Current Page"
       >
-        <Maximize2 className="w-3.5 h-3.5 text-zinc-950" />
+        <IconMaximize className="w-3.5 h-3.5 text-zinc-950" />
         Zoom to Fit
       </button>
 
@@ -132,7 +132,7 @@ export default function WhiteboardPageControls({ editor, isTeacher, isWritable }
           </>
         ) : (
           <>
-            <Upload className="w-3.5 h-3.5 text-white" />
+            <IconUpload className="w-3.5 h-3.5 text-white" />
             <span>Import PDF/Img</span>
           </>
         )}

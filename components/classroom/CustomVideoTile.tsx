@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ParticipantTile, TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import { Pin, Megaphone, MicOff } from 'lucide-react';
+import { IconPin, IconSpeakerphone, IconMicrophoneOff } from '@tabler/icons-react';
 
 interface CustomVideoTileProps {
   trackRef: TrackReferenceOrPlaceholder;
@@ -74,7 +74,7 @@ export default function CustomVideoTile({
             )
           )}
           {isMuted ? (
-            <MicOff className="w-3.5 h-3.5 text-red-400" />
+            <IconMicrophoneOff className="w-3.5 h-3.5 text-red-400" />
           ) : (
             isSpeaking && (
               <div className="flex items-end gap-0.5 h-3 w-3">
@@ -102,7 +102,7 @@ export default function CustomVideoTile({
             }`}
             title={isPinned ? 'Unpin tile' : 'Pin tile'}
           >
-            <Pin className="w-4 h-4" />
+            <IconPin className="w-4 h-4" />
           </button>
 
           {showSpotlightBtn && onSpotlight && (
@@ -118,7 +118,7 @@ export default function CustomVideoTile({
               }`}
               title={isSpotlighted ? 'Cancel spotlight' : 'Spotlight for everyone'}
             >
-              <Megaphone className="w-4 h-4" />
+              <IconSpeakerphone className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -133,7 +133,7 @@ export default function CustomVideoTile({
               : 'top-3 left-3 text-[10px]'
           }`}
         >
-          <Megaphone className="w-3 h-3 animate-pulse" />
+          <IconSpeakerphone className="w-3 h-3 animate-pulse" />
           Spotlighted
         </div>
       )}
@@ -145,7 +145,7 @@ export default function CustomVideoTile({
             isSidebar ? 'top-2 right-2 p-1 scale-90' : 'top-3 right-3 p-1.5'
           }`}
         >
-          <Pin className="w-3.5 h-3.5 fill-current" />
+          <IconPin className="w-3.5 h-3.5 fill-current" />
         </div>
       )}
     </div>

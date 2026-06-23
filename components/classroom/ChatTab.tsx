@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Participant } from 'livekit-client';
-import { MessageSquare, Send, Reply } from 'lucide-react';
+import { IconMessage, IconSend, IconCornerUpLeft } from '@tabler/icons-react';
 import { ChatMessage } from '../VideoRoom';
 import Tooltip from './Tooltip';
 
@@ -113,7 +113,7 @@ export default function ChatTab({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-foreground/30 space-y-2 select-none">
-            <MessageSquare className="w-8 h-8 opacity-40" />
+            <IconMessage className="w-8 h-8 opacity-40" />
             <p className="text-xs font-semibold">Class chat is active</p>
             <p className="text-[10px] max-w-[180px]">
               Messages are ephemeral and disappear if you refresh the page.
@@ -167,7 +167,7 @@ export default function ChatTab({
                         }
                         className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold cursor-pointer transition-colors bg-transparent border-none p-0"
                       >
-                        <Reply className="w-3 h-3 text-indigo-400" />
+                        <IconCornerUpLeft className="w-3 h-3 text-indigo-400" />
                         <span className="underline">Reply</span>
                       </button>
                     </Tooltip>
@@ -194,7 +194,7 @@ export default function ChatTab({
           disabled={!inputText.trim()}
           className="w-10 h-10 bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center cursor-pointer transition-all duration-150 shadow-md shadow-primary/10 active:scale-95 flex-shrink-0"
         >
-          <Send className="w-4 h-4" />
+          <IconSend className="w-4 h-4" />
         </button>
       </form>
     </div>

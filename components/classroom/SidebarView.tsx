@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import { Users } from 'lucide-react';
+import { IconUsers } from '@tabler/icons-react';
 import CustomVideoTile from './CustomVideoTile';
 
 interface SidebarViewProps {
@@ -41,7 +41,7 @@ export default function SidebarView({
           </div>
         ) : (
           <div className="w-full aspect-video flex flex-col items-center justify-center bg-surface border border-white/5 rounded-2xl text-foreground/30 font-medium">
-            <Users className="w-12 h-12 text-white/20 mb-3" />
+            <IconUsers className="w-12 h-12 text-white/20 mb-3" />
             <span>{isTeacher ? 'Waiting for students...' : 'Connecting to teacher...'}</span>
           </div>
         )}

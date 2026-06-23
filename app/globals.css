@@ -3,14 +3,31 @@
 @theme inline {
   --color-background: #030712;
   --color-foreground: #f9fafb;
-  --color-surface: #111827;
+  --color-surface: #13131F;
   --color-surface-light: #1f2937;
-  --color-border: #374151;
+  --color-border: #2C2C42;
   --color-primary: #6366f1;
   --color-primary-hover: #818cf8;
   --color-primary-glow: rgba(99, 102, 241, 0.25);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-shell: #0D0D14;
+  --color-surface-hi: #1E1E30;
+  --color-accent: #5B4FD4;
+  --color-accent-hi: #7B6EF6;
+  --color-text: #E8E8F0;
+  --color-text-muted: #5A5A78;
+  --color-danger: #E5484D;
+  --color-success: #46A758;
+  --color-warning: #F5A623;
+
+  --animate-pulse-recording: pulse-recording 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes pulse-recording {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
 }
 
 * {

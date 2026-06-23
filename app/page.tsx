@@ -125,7 +125,7 @@ function ClassroomWrapper({
       )}
 
       {!hasJoined && (
-        <div className="absolute inset-0 z-[1000]">
+        <div className="absolute inset-0 z-50">
           <PreJoinScreen
             roomName={roomName}
             teacherName={teacherName}
@@ -136,7 +136,7 @@ function ClassroomWrapper({
       )}
 
       {hasJoined && !isFullyConnected && (
-        <div className="absolute inset-0 z-[1000] bg-[#030712] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+        <div className="absolute inset-0 z-50 bg-[#030712] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#6366F1]/10 blur-[130px] animate-pulse" />
           </div>

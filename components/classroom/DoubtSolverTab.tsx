@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image, Camera, Trash2, Loader2, RefreshCw, AlertCircle, Maximize2, ExternalLink } from 'lucide-react';
+import { IconSend, IconPhoto, IconCamera, IconTrash, IconLoader2, IconRefresh, IconAlertCircle, IconMaximize, IconExternalLink } from '@tabler/icons-react';
 
 interface Doubt {
 	id: number;
@@ -230,7 +230,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 					className="p-1.5 rounded-lg hover:bg-white/5 text-[#C2CCDE] hover:text-white transition-colors cursor-pointer"
 					title="Refresh doubt list"
 				>
-					<RefreshCw className="w-3.5 h-3.5" />
+					<IconRefresh className="w-3.5 h-3.5" />
 				</button>
 			</div>
 
@@ -239,7 +239,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 				{/* Empty State */}
 				{!isStreaming && doubts.length === 0 && !isLoadingHistory && (
 					<div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-white/5 rounded-2xl bg-white/[0.01] my-4">
-						<AlertCircle className="w-8 h-8 text-indigo-400/50 mb-3" />
+						<IconAlertCircle className="w-8 h-8 text-indigo-400/50 mb-3" />
 						<h5 className="font-semibold text-sm text-white/70">No doubts asked yet</h5>
 						<p className="text-xs text-foreground/40 max-w-xs mt-1">
 							{isTeacher 
@@ -251,7 +251,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 
 				{isLoadingHistory ? (
 					<div className="flex justify-center items-center py-12">
-						<Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+						<IconLoader2 className="w-6 h-6 text-indigo-400 animate-spin" />
 					</div>
 				) : (
 					<div className="space-y-4">
@@ -275,7 +275,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 									<div className="relative group w-32 aspect-video rounded-lg overflow-hidden border border-white/10 cursor-pointer shadow-md" onClick={() => setSelectedImage(d.screenshot)}>
 										<img src={d.screenshot} alt="Screenshot attachment" className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
 										<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-											<Maximize2 className="w-4 h-4 text-white" />
+											<IconMaximize className="w-4 h-4 text-white" />
 										</div>
 									</div>
 								)}
@@ -291,7 +291,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 							<div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 space-y-3 animate-pulse">
 								<div className="flex justify-between items-center text-[10px]">
 									<span className="font-bold text-indigo-400">Asking solver...</span>
-									<Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
+									<IconLoader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
 								</div>
 								
 								<div className="p-3.5 rounded-lg bg-surface-light/10 border-l-2 border-indigo-400 text-xs text-[#C2CCDE] leading-relaxed whitespace-pre-wrap min-h-[50px]">
@@ -308,6 +308,19 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 			{/* Bottom Input Area (Student Only) */}
 			{!isTeacher && (
 				<form onSubmit={handleSubmitDoubt} className="p-3 border-t border-white/5 bg-surface/20 space-y-3">
+					{/* AI Context Pill */}
+					<div className="flex items-center">
+						<span className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-hi border border-border rounded-full text-[10px] font-bold text-text-muted font-sans select-none">
+							📚 Context: last {Math.max(1, Math.floor((Date.now() - (() => {
+								if (typeof window !== 'undefined') {
+									const val = sessionStorage.getItem('classroom_session_started_at');
+									if (val) return parseInt(val, 10);
+								}
+								return Date.now();
+							})()) / 60000))} mins
+						</span>
+					</div>
+
 					{/* Screenshot Preview */}
 					{screenshotBase64 && (
 						<div className="relative inline-block border border-white/10 rounded-xl overflow-hidden shadow-lg">
@@ -318,7 +331,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 								className="absolute top-1 right-1 p-1 bg-black/60 rounded-full hover:bg-red-500/80 transition-colors text-white cursor-pointer"
 								title="Remove screenshot"
 							>
-								<Trash2 className="w-3.5 h-3.5" />
+								<IconTrash className="w-3.5 h-3.5" />
 							</button>
 						</div>
 					)}
@@ -331,7 +344,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[#C2CCDE] hover:text-white transition-colors cursor-pointer"
 							title="Attach screenshot"
 						>
-							<Image className="w-4 h-4" />
+							<IconPhoto className="w-4 h-4" />
 						</button>
 						<input
 							type="file"
@@ -350,9 +363,9 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 							title="Capture Whiteboard drawing"
 						>
 							{isCapturing ? (
-								<Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+								<IconLoader2 className="w-4 h-4 animate-spin text-indigo-400" />
 							) : (
-								<Camera className="w-4 h-4" />
+								<IconCamera className="w-4 h-4" />
 							)}
 						</button>
 
@@ -372,7 +385,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 							disabled={!doubtText.trim() || isStreaming}
 							className="p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50 disabled:bg-[#111827] cursor-pointer flex items-center justify-center"
 						>
-							<Send className="w-4 h-4" />
+							<IconSend className="w-4 h-4" />
 						</button>
 					</div>
 				</form>
@@ -380,7 +393,7 @@ export default function DoubtSolverTab({ sessionId, isTeacher, editor }: DoubtSo
 
 			{/* Fullscreen Image Lightbox Modal */}
 			{selectedImage && (
-				<div className="fixed inset-0 z-[9999999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
+				<div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
 					<div className="relative max-w-4xl w-full max-h-[85vh] bg-surface border border-white/10 rounded-2xl overflow-hidden p-2 flex flex-col items-center shadow-2xl animate-in fade-in zoom-in-95 duration-200">
 						<img src={selectedImage} alt="Attachment Full View" className="max-w-full max-h-[80vh] object-contain rounded-xl" />
 						<button

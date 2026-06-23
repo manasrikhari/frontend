@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Participant } from 'livekit-client';
-import { MoreVertical, Mic, MicOff, Video, VideoOff, MessageSquare, Lock, X } from 'lucide-react';
+import { IconDotsVertical, IconMicrophone, IconMicrophoneOff, IconVideo, IconVideoOff, IconMessage, IconLock, IconX } from '@tabler/icons-react';
 import Tooltip from './Tooltip';
 
 interface ParticipantsTabProps {
@@ -225,18 +225,18 @@ export default function ParticipantsTab({
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
                       ) : p.isMicrophoneEnabled ? (
-                        <Mic className="w-3.5 h-3.5" />
+                        <IconMicrophone className="w-3.5 h-3.5" />
                       ) : (
-                        <MicOff className="w-3.5 h-3.5" />
+                        <IconMicrophoneOff className="w-3.5 h-3.5" />
                       )}
                     </button>
                   </Tooltip>
                 ) : (
                   <div className={`p-1.5 rounded-md ${p.isMicrophoneEnabled ? 'text-[#C2CCDE]/40' : 'text-red-500 bg-red-500/10'}`}>
                     {p.isMicrophoneEnabled ? (
-                      <Mic className="w-3.5 h-3.5" />
+                      <IconMicrophone className="w-3.5 h-3.5" />
                     ) : (
-                      <MicOff className="w-3.5 h-3.5" />
+                      <IconMicrophoneOff className="w-3.5 h-3.5" />
                     )}
                   </div>
                 )}
@@ -259,18 +259,18 @@ export default function ParticipantsTab({
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
                       ) : p.isCameraEnabled ? (
-                        <Video className="w-3.5 h-3.5" />
+                        <IconVideo className="w-3.5 h-3.5" />
                       ) : (
-                        <VideoOff className="w-3.5 h-3.5" />
+                        <IconVideoOff className="w-3.5 h-3.5" />
                       )}
                     </button>
                   </Tooltip>
                 ) : (
                   <div className={`p-1.5 rounded-md ${p.isCameraEnabled ? 'text-[#C2CCDE]/40' : 'text-red-500 bg-red-500/10'}`}>
                     {p.isCameraEnabled ? (
-                      <Video className="w-3.5 h-3.5" />
+                      <IconVideo className="w-3.5 h-3.5" />
                     ) : (
-                      <VideoOff className="w-3.5 h-3.5" />
+                      <IconVideoOff className="w-3.5 h-3.5" />
                     )}
                   </div>
                 )}
@@ -284,24 +284,24 @@ export default function ParticipantsTab({
                     >
                       {isLocalTeacher && p.metadata !== 'teacher' && isStudentLocked ? (
                         <div className="relative flex items-center justify-center">
-                          <MoreVertical className="w-4 h-4" />
-                          <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 text-red-500 bg-[#0c101d] rounded-full p-[0.5px]" />
+                          <IconDotsVertical className="w-4 h-4" />
+                          <IconLock className="w-2.5 h-2.5 absolute -top-1 -right-1 text-red-500 bg-[#0c101d] rounded-full p-[0.5px]" />
                         </div>
                       ) : (
-                        <MoreVertical className="w-4 h-4" />
+                        <IconDotsVertical className="w-4 h-4" />
                       )}
                     </button>
 
                     {activeDropdownSid === p.sid && (
                       <div
                         ref={dropdownRef}
-                        className="absolute right-7 top-1 w-48 bg-[#0c101d]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-1 z-[600] animate-in fade-in slide-in-from-top-1 duration-100 font-sans"
+                        className="absolute right-7 top-1 w-48 bg-[#0c101d]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-1 z-40 animate-in fade-in slide-in-from-top-1 duration-100 font-sans"
                       >
                         <button
                           onClick={() => onStartDM(p)}
                           className="w-full text-left px-2.5 py-2 text-xs font-semibold hover:bg-white/5 rounded-lg text-[#C2CCDE] transition-colors flex items-center gap-2 cursor-pointer"
                         >
-                          <MessageSquare className="w-3.5 h-3.5" />
+                          <IconMessage className="w-3.5 h-3.5" />
                           Direct Chat
                         </button>
                         {isLocalTeacher && p.metadata !== 'teacher' && (
@@ -314,7 +314,7 @@ export default function ParticipantsTab({
                               className="w-full text-left px-2.5 py-2 text-xs font-semibold hover:bg-white/5 rounded-lg text-[#C2CCDE] transition-colors flex items-center justify-between cursor-pointer border-t border-white/5 mt-1"
                             >
                               <span className="flex items-center gap-2">
-                                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                                <IconLock className="w-3.5 h-3.5 text-zinc-400" />
                                 Whiteboard Edit
                               </span>
                               <span
@@ -335,7 +335,7 @@ export default function ParticipantsTab({
                               className="w-full text-left px-2.5 py-2 text-xs font-semibold hover:bg-white/5 rounded-lg text-[#C2CCDE] transition-colors flex items-center justify-between cursor-pointer mt-1"
                             >
                               <span className="flex items-center gap-2">
-                                <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                                <IconLock className="w-3.5 h-3.5 text-zinc-400" />
                                 Screen Share
                               </span>
                               <span
@@ -353,7 +353,7 @@ export default function ParticipantsTab({
                               disabled={loadingActions[`${p.identity}-kick`]}
                               className="w-full text-left px-2.5 py-2 text-xs font-semibold hover:bg-red-500/10 rounded-lg text-red-400 transition-colors flex items-center gap-2 cursor-pointer border-t border-white/5 mt-1"
                             >
-                              <X className="w-3.5 h-3.5 text-red-400" />
+                              <IconX className="w-3.5 h-3.5 text-red-400" />
                               Kick Student
                             </button>
                           </>

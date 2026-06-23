@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import TiledView from './TiledView';
-import SpotlightView from './SpotlightView';
+// import SpotlightView from './SpotlightView';
 import SidebarView from './SidebarView';
 
 interface GridViewProps {
@@ -142,6 +142,7 @@ export default function GridView({
 
   return (
     <div ref={containerRef} className="w-full h-full min-h-0 min-w-0">
+      {/* SpotlightView is commented out
       {currentViewMode === 'spotlight' && (
         <SpotlightView
           featuredTrack={featuredTrack || null}
@@ -152,6 +153,7 @@ export default function GridView({
           onToggleSpotlight={handleToggleSpotlight}
         />
       )}
+      */}
 
       {currentViewMode === 'tiled' && (
         <TiledView

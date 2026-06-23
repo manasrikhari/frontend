@@ -584,7 +584,7 @@ export default function Dashboard() {
         )}
       </div>
       {selectedMomSessionId && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl max-h-[85vh] bg-[#0c101d]/90 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white font-sans">
             {/* Header */}
             <div className="p-5 border-b border-border/20 flex items-center justify-between">

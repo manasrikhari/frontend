@@ -17,17 +17,45 @@ import { useAudioTranscriber } from '../hooks/useAudioTranscriber';
 import { decodeJwt } from '@/lib/api';
 import { useClassroomSession } from '@/hooks/useClassroomSession';
 import type { IceServer } from '@/lib/api';
-import WhiteboardPageControls from './classroom/WhiteboardPageControls';
+
 import { getPagesSorted } from './classroom/whiteboard-helpers';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { 
+  IconMaximize, 
+  IconMinimize, 
+  IconUsers,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconVideo,
+  IconVideoOff,
+  IconScreenShare,
+  IconChalkboard,
+  IconChalkboardOff,
+  IconLayoutDashboard,
+  IconTableSpark,
+  IconLayoutGrid,
+  IconLayoutSidebarRight,
+  IconRectangle,
+  IconMessage,
+  IconHelpCircle,
+  IconSparkles,
+  IconFileText,
+  IconLock,
+  IconGalaxy,
+  IconFileTextSpark
+} from '@tabler/icons-react';
+import { Phone } from 'lucide-react';
+import Tooltip from './classroom/Tooltip';
 
-
+const STROKE_WIDTH = 1.75; // Shared stroke width for all control bar and LeftRail icons
 
 import Controls from './classroom/Controls';
 import FloatingTeacherTile from './classroom/FloatingTeacherTile';
 import StudentSidebar from './classroom/StudentSidebar';
 import GridView from './classroom/GridView';
 import ChatPanel from './classroom/ChatPanel';
+import LeftRail from './classroom/LeftRail';
+import ParticipantsOverlay from './classroom/ParticipantsOverlay';
+import MomOverlay from './classroom/MomOverlay';
 
 export interface ChatMessage {
   id: string;
@@ -359,6 +387,54 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [activeRightPanelTab, setActiveRightPanelTab] = useState<'chat' | 'participants' | 'doubt' | 'summary' | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
+
+  const [showParticipantsOverlay, setShowParticipantsOverlay] = useState(false);
+  const [showMomOverlay, setShowMomOverlay] = useState(false);
+  const [isChatPinned, setIsChatPinned] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const layoutMenuRef = useRef<HTMLDivElement>(null);
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  useEffect(() => {
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)));
+    };
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [startedAtMs]);
+
+  const formatDuration = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (num: number) => String(num).padStart(2, '0');
+
+    if (hours > 0) {
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+    return `${pad(minutes)}:${pad(seconds)}`;
+  };
+
+  const handleStartDM = useCallback((p: any) => {
+    const pName = p.name || p.identity;
+    setActiveChatTarget({ identity: p.identity, name: pName });
+    setActiveRightPanelTab('chat');
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (layoutMenuRef.current && !layoutMenuRef.current.contains(event.target as Node)) {
+        setShowLayoutMenu(false);
+      }
+    }
+    if (showLayoutMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLayoutMenu]);
   const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(() =>
     getSavedState(roomName, 'global_whiteboard_allowed', false, sessionToken)
   );
@@ -1188,15 +1264,316 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     );
   }
 
+  if (isMobile) {
+    return (
+      /* MOBILE ONLY START */
+      <div 
+        ref={roomContainerRef}
+        className="flex flex-col h-screen w-screen bg-[#030712] text-foreground overflow-hidden relative font-sans"
+      >
+        
+        {/* Reconnecting Overlay */}
+        {showReconnecting && (
+          <div className="absolute inset-0 bg-[#030712]/80 backdrop-blur-md z-50 flex items-center justify-center pointer-events-auto">
+            <div className="text-center space-y-4">
+              <svg className="w-12 h-12 animate-spin text-primary mx-auto" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <div>
+                <p className="text-lg font-semibold text-white">Connection Lost</p>
+                <p className="text-sm text-foreground/50 mt-1">Reconnecting to class session...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Workspace + Sidebars (Top Flex Row) */}
+        <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
+          
+          {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+
+            {/* Content Viewport */}
+            <div 
+              className="flex-1 overflow-hidden relative bg-[#060b18]"
+              onClick={handleViewportClick}
+            >
+              
+
+              
+              {!(isMobile && !layoutLandscape && mobileControlsVisible) && (
+                <FloatingTeacherTile
+                  teacherTrack={teacherTrack}
+                  isFocusMode={isFocusMode}
+                  showSplitLayout={showSplitLayout}
+                />
+              )}
+
+              {teacherAbsentTimeLeft !== null && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4">
+                  <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+                    <div className="flex items-center gap-2.5">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
+                        <span className="text-[10px] text-amber-200/70">
+                          {teacherAbsentTimeLeft > 180
+                            ? "Waiting for them to rejoin..."
+                            : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fullscreen Button for Mobile (when Whiteboard or Screen Sharing is active) */}
+              {isMobile && (showWhiteboard || (hasScreenShare && screenShareTrackRef)) && (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleFullscreen();
+                  }}
+                  className={`absolute right-4 z-50 p-2.5 rounded-xl bg-black/60 hover:bg-black/85 text-white/80 hover:text-white border border-white/10 shadow-lg cursor-pointer transition-all duration-200 ${
+                    mobileControlsVisible
+                      ? 'bottom-24'
+                      : 'bottom-4'
+                  }`}
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <IconMinimize className="w-5 h-5" />
+                  ) : (
+                    <IconMaximize className="w-5 h-5" />
+                  )}
+                </button>
+              )}
+
+              {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
+              <div className={`z-10 bg-white whiteboard-container transition-all duration-300 ${
+                showWhiteboard 
+                  ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl overflow-hidden ${
+                      mobileControlsVisible
+                        ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
+                        : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
+                    }`
+                  : 'absolute inset-0 opacity-0 pointer-events-none'
+              }`}>
+                <WhiteboardWrapper 
+                  roomName={roomName} 
+                  userName={userName} 
+                  onEditorMount={handleEditorMount} 
+                  isTeacher={isTeacher}
+                  isWritable={isWhiteboardAllowed}
+                  room={room}
+                  localParticipant={localParticipant}
+                  isSidebarOpen={!isFocusMode}
+                  isMobile={isMobile}
+                />
+
+
+              </div>
+
+              {!showWhiteboard && (
+                hasScreenShare && screenShareTrackRef ? (
+                  /* Screen Share takes center stage */
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <div className={`overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl screenshare-container transition-all duration-300 ${
+                      isMobile
+                        ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl ${
+                            mobileControlsVisible
+                              ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
+                              : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
+                          }`
+                        : 'w-full h-full max-h-full aspect-video'
+                    }`}>
+                      <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
+                    </div>
+                  </div>
+                ) : (
+                  <GridView
+                    isTeacher={isTeacher}
+                    activeStudentTrack={activeStudentTrack}
+                    teacherTrack={teacherTrack}
+                    remoteStudents={remoteStudents}
+                    gridStudents={gridStudents}
+                    cameraTracksCount={cameraTracks.length}
+                    layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
+                    pinnedTrackSid={pinnedTrackSid}
+                    setPinnedTrackSid={setPinnedTrackSid}
+                    spotlightTrackSid={spotlightTrackSid}
+                    setSpotlightTrackSid={setSpotlightTrackSid}
+                    onBroadcastSpotlight={handleBroadcastSpotlight}
+                    localTrack={localTrack}
+                  />
+                )
+              )}
+
+            </div>
+
+          </div>
+
+          {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
+          {showSplitLayout && (
+            <StudentSidebar
+              showWhiteboard={showWhiteboard}
+              teacherTrack={teacherTrack}
+              sidebarStudents={sidebarStudents}
+              isOpen={!isFocusMode}
+              onToggle={() => {
+                const nextFocus = !isFocusMode;
+                setIsFocusMode(nextFocus);
+                setLayoutMode(nextFocus ? 'focus' : 'sidebar');
+              }}
+              isMobile={isMobile}
+              mobileControlsVisible={mobileControlsVisible}
+              isLandscape={layoutLandscape}
+              isFullscreen={isFullscreen}
+            />
+          )}
+
+          {/* RIGHT PANE: Chat & Participants Panel */}
+          {activeRightPanelTab && localParticipant && (
+            <ChatPanel
+              activeTab={activeRightPanelTab}
+              setActiveTab={setActiveRightPanelTab}
+              messages={messages}
+              onSendMessage={sendMessage}
+              participants={participants}
+              localParticipant={localParticipant}
+              activeChatTarget={activeChatTarget}
+              setActiveChatTarget={setActiveChatTarget}
+              roomName={roomName}
+              globalWhiteboardAllowed={globalWhiteboardAllowed}
+              globalScreenShareAllowed={globalScreenShareAllowed}
+              allowedWhiteboardStudents={allowedWhiteboardStudents}
+              allowedScreenShareStudents={allowedScreenShareStudents}
+              onToggleGlobalPermission={handleToggleGlobalPermission}
+              onToggleStudentPermission={handleToggleStudentPermission}
+              isMobile={isMobile}
+              isTeacher={isTeacher}
+              editor={editor}
+            />
+          )}
+
+        </div>
+
+        {/* BOTTOM ROW: Full-width Google Meet Style Footer */}
+        {!activeRightPanelTab && (
+          <Controls
+            roomName={roomName}
+            isMicrophoneEnabled={isMicrophoneEnabled}
+            toggleMicrophone={toggleMicrophone}
+            isCameraEnabled={isCameraEnabled}
+            toggleCamera={toggleCamera}
+            isScreenShareEnabled={isScreenShareEnabled}
+            toggleScreenShare={toggleScreenShare}
+            showWhiteboard={showWhiteboard}
+            toggleWhiteboard={toggleWhiteboard}
+            isTeacher={isTeacher}
+            isExporting={isExporting}
+            handleEndClass={handleEndClass}
+            onLeave={() => {
+              if (isTeacher) {
+                setShowEndCallModal(true);
+              } else {
+                onLeave();
+              }
+            }}
+            exportedPdfUrl={exportedPdfUrl}
+            activeRightPanelTab={activeRightPanelTab}
+            setActiveRightPanelTab={setActiveRightPanelTab}
+            isWhiteboardAllowed={isWhiteboardAllowed}
+            isScreenShareAllowed={isScreenShareAllowed}
+            layoutMode={layoutMode}
+            setLayoutMode={setLayoutMode}
+            showSplitLayout={showSplitLayout}
+            isMobile={isMobile}
+            mobileControlsVisible={mobileControlsVisible}
+            onHideControls={() => setMobileControlsVisible(false)}
+          />
+        )}
+
+        {/* End Call Options Modal for Teachers */}
+        {showEndCallModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#0b0f19]/90 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+              <h3 className="text-lg font-bold text-white text-center font-sans">End Session</h3>
+              <p className="text-sm text-foreground/60 text-center leading-normal font-sans">
+                Choose how you want to exit the class session.
+              </p>
+              <div className="flex flex-col gap-2.5 pt-2 font-sans">
+                <button
+                  onClick={() => {
+                    setShowEndCallModal(false);
+                    handleEndClass(true);
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                >
+                  End Call for All
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEndCallModal(false);
+                    onLeave();
+                  }}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[#ffffff] font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                >
+                  Leave Meeting
+                </button>
+                <button
+                  onClick={() => setShowEndCallModal(false)}
+                  className="w-full py-2 text-xs text-foreground/45 hover:text-white font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Exporting / Publishing Notes Overlay */}
+        {isExporting && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+            <div className="flex flex-col items-center space-y-4 max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                <div className="absolute inset-2 rounded-full border-4 border-b-emerald-400 border-t-transparent border-r-transparent border-l-transparent animate-spin duration-1000 ease-in-out"></div>
+                <div className="absolute inset-5.5 rounded-full bg-white/20 animate-pulse"></div>
+              </div>
+              <h3 className="text-xl font-bold text-white font-sans mt-4">Publishing Notes</h3>
+              <p className="text-sm text-foreground/60 leading-relaxed font-sans">
+                Generating high-fidelity multi-page PDF notes and uploading them. Please wait a moment...
+              </p>
+            </div>
+          </div>
+        )}
+
+      </div>
+      /* MOBILE ONLY END */
+    );
+  }
+
+  /* DESKTOP ONLY START */
   return (
     <div 
       ref={roomContainerRef}
-      className="flex flex-col h-screen w-screen bg-[#030712] text-foreground overflow-hidden relative font-sans"
+      className="grid h-screen w-screen overflow-hidden bg-shell text-text relative font-sans"
+      style={{ 
+        gridTemplateRows: '48px 1fr 72px', 
+        gridTemplateColumns: (showWhiteboard && isWhiteboardAllowed) ? '52px 1fr' : '1fr',
+        isolation: 'isolate' 
+      }}
     >
       
       {/* Reconnecting Overlay */}
       {showReconnecting && (
-        <div className="absolute inset-0 bg-[#030712]/80 backdrop-blur-md z-[1000] flex items-center justify-center pointer-events-auto">
+        <div className="absolute inset-0 bg-[#030712]/80 backdrop-blur-md z-50 flex items-center justify-center pointer-events-auto">
           <div className="text-center space-y-4">
             <svg className="w-12 h-12 animate-spin text-primary mx-auto" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1210,160 +1587,139 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         </div>
       )}
 
-      {/* Main Workspace + Sidebars (Top Flex Row) */}
-      <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
-        
-        {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      {/* 1. TOP BAR (48px tall, spans full width) */}
+      <div className="col-span-2 h-[48px] bg-surface border-b border-border flex items-center justify-between px-6 relative z-50 select-none">
+        {/* Left: Pulsing red dot, Branding & Timer (adjacent) */}
+        <div className="flex items-center gap-1">
+          <div className="flex items-center">
+            {/* <span className="relative flex h-2 w-2">
+              <span className="animate-pulse-recording absolute inline-flex h-full w-full rounded-full bg-danger opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-danger" />
+            </span> */}
+            <span className="font-semibold text-sm tracking-wider bg-clip-texttext-text">
+              OpenGrapes Live
+            </span>
+          </div>
+          <div className="w-px h-4 bg-border/20" />
+          <span className="text-xs font-mono font-bold text-accent-hi">
+            {formatDuration(elapsedSeconds)}
+          </span>
+        </div>
 
-          {/* Content Viewport */}
-          <div 
-            className="flex-1 overflow-hidden relative bg-[#060b18]"
-            onClick={handleViewportClick}
+        {/* Right: Participants button with count badge */}
+        <button
+            onClick={() => setShowParticipantsOverlay(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+              showParticipantsOverlay 
+                ? 'bg-accent text-white shadow-lg shadow-accent/25' 
+                : 'bg-surface-hi text-text hover:bg-border/40'
+            }`}
           >
-            
-            {/* Floating Class Topic Pill */}
-            <div className="absolute top-4 left-4 z-[50]">
-              <div className="bg-[#090d1a]/85 backdrop-blur-xl border border-white/10 px-3 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-black/25">
-                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 select-none">
-                  Topic
-                </span>
-                {isTeacher ? (
-                  <input
-                    type="text"
-                    value={topicNotes}
-                    onChange={(e) => handleUpdateTopic(e.target.value)}
-                    placeholder="Set class topic..."
-                    className="bg-transparent border-none outline-none text-xs font-semibold text-white/95 placeholder-white/20 w-36 focus:ring-0 p-0"
-                  />
-                ) : (
-                  <span className="text-xs font-semibold text-white/90 truncate max-w-[150px] select-none">
-                    {topicNotes || 'Class in Progress'}
+            <IconUsers className="w-4 h-4" />
+            <span>{participants.length}</span>
+          </button>
+      </div>
+
+      {isWhiteboardAllowed && (
+        <LeftRail 
+          editor={editor} 
+          showWhiteboard={showWhiteboard} 
+          strokeWidth={STROKE_WIDTH}
+        />
+      )}
+
+      {/* 3. CONTENT ZONE (row 2, col 2) */}
+      <div 
+        className={`relative overflow-hidden z-10 h-full ${
+          showSplitLayout || (isChatPinned && activeRightPanelTab) ? 'flex flex-row' : 'block'
+        }`}
+      >
+        {/* Main Viewport Container */}
+        <div 
+          className={`h-full relative overflow-hidden bg-[#060b18] ${
+            showSplitLayout || (isChatPinned && activeRightPanelTab) ? 'flex-1 min-w-0' : 'w-full'
+          }`}
+          onClick={handleViewportClick}
+        >
+
+
+          {/* Floating Teacher video tile */}
+          <FloatingTeacherTile
+            teacherTrack={teacherTrack}
+            isFocusMode={isFocusMode}
+            showSplitLayout={showSplitLayout}
+          />
+
+          {/* Teacher absent timer */}
+          {teacherAbsentTimeLeft !== null && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4">
+              <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
                   </span>
-                )}
-              </div>
-            </div>
-            
-            {!(isMobile && !layoutLandscape && mobileControlsVisible) && (
-              <FloatingTeacherTile
-                teacherTrack={teacherTrack}
-                isFocusMode={isFocusMode}
-                showSplitLayout={showSplitLayout}
-              />
-            )}
-
-            {teacherAbsentTimeLeft !== null && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[50] w-full max-w-lg px-4">
-                <div className="bg-amber-500/10 backdrop-blur-xl border border-amber-500/30 text-amber-200 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
-                  <div className="flex items-center gap-2.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
+                    <span className="text-[10px] text-amber-200/70">
+                      {teacherAbsentTimeLeft > 180
+                        ? "Waiting for them to rejoin..."
+                        : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
                     </span>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-amber-100">Teacher Disconnected</span>
-                      <span className="text-[10px] text-amber-200/70">
-                        {teacherAbsentTimeLeft > 180
-                          ? "Waiting for them to rejoin..."
-                          : `${Math.floor(teacherAbsentTimeLeft / 60)}:${(teacherAbsentTimeLeft % 60).toString().padStart(2, '0')} until meeting ends automatically`}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Fullscreen Button for Mobile (when Whiteboard or Screen Sharing is active) */}
-            {isMobile && (showWhiteboard || (hasScreenShare && screenShareTrackRef)) && (
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleFullscreen();
-                }}
-                className={`absolute right-4 z-[999] p-2.5 rounded-xl bg-black/60 hover:bg-black/85 text-white/80 hover:text-white border border-white/10 shadow-lg cursor-pointer transition-all duration-200 ${
-                  mobileControlsVisible
-                    ? 'bottom-24'
-                    : 'bottom-4'
-                }`}
-                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="w-5 h-5" />
-                ) : (
-                  <Maximize2 className="w-5 h-5" />
-                )}
-              </button>
-            )}
-
-            {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
-            <div className={`z-10 bg-white whiteboard-container transition-all duration-300 ${
-              showWhiteboard 
-                ? isMobile
-                  ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl overflow-hidden ${
-                      mobileControlsVisible
-                        ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
-                        : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
-                    }`
-                  : 'w-full h-full relative block'
-                : 'absolute inset-0 opacity-0 pointer-events-none'
-            }`}>
-              <WhiteboardWrapper 
-                roomName={roomName} 
-                userName={userName} 
-                onEditorMount={handleEditorMount} 
-                isTeacher={isTeacher}
-                isWritable={isWhiteboardAllowed}
-                room={room}
-                localParticipant={localParticipant}
-                isSidebarOpen={!isFocusMode}
-                isMobile={isMobile}
-              />
-
-              {/* Whiteboard Page Controls (restricted to teachers & authorized students) */}
-              <WhiteboardPageControls editor={editor} isTeacher={isTeacher} isWritable={isWhiteboardAllowed} />
             </div>
+          )}
 
-            {!showWhiteboard && (
-              hasScreenShare && screenShareTrackRef ? (
-                /* Screen Share takes center stage */
-                <div className="w-full h-full flex items-center justify-center p-4">
-                  <div className={`overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl screenshare-container transition-all duration-300 ${
-                    isMobile
-                      ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl ${
-                          mobileControlsVisible
-                            ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
-                            : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
-                        }`
-                      : 'w-full h-full max-h-full aspect-video'
-                  }`}>
-                    <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
-                  </div>
-                </div>
-              ) : (
-                <GridView
-                  isTeacher={isTeacher}
-                  activeStudentTrack={activeStudentTrack}
-                  teacherTrack={teacherTrack}
-                  remoteStudents={remoteStudents}
-                  gridStudents={gridStudents}
-                  cameraTracksCount={cameraTracks.length}
-                  layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
-                  pinnedTrackSid={pinnedTrackSid}
-                  setPinnedTrackSid={setPinnedTrackSid}
-                  spotlightTrackSid={spotlightTrackSid}
-                  setSpotlightTrackSid={setSpotlightTrackSid}
-                  onBroadcastSpotlight={handleBroadcastSpotlight}
-                  localTrack={localTrack}
-                />
-              )
-            )}
+          {/* Whiteboard container (always mounted but hidden if not showWhiteboard) */}
+          <div className={`z-10 bg-white whiteboard-container transition-all duration-300 ${
+            showWhiteboard ? 'w-full h-full relative block' : 'absolute inset-0 opacity-0 pointer-events-none'
+          }`}>
+            <WhiteboardWrapper 
+              roomName={roomName} 
+              userName={userName} 
+              onEditorMount={handleEditorMount} 
+              isTeacher={isTeacher}
+              isWritable={isWhiteboardAllowed}
+              room={room}
+              localParticipant={localParticipant}
+              isSidebarOpen={!isFocusMode}
+              isMobile={false}
+            />
 
           </div>
 
+          {/* Video Grid or Screen Share when whiteboard is not visible */}
+          {!showWhiteboard && (
+            hasScreenShare && screenShareTrackRef ? (
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <div className="w-full h-full max-h-full aspect-video overflow-hidden border border-border bg-surface/50 shadow-2xl relative rounded-xl screenshare-container">
+                  <ParticipantTile trackRef={screenShareTrackRef} className="w-full h-full lk-screen-share-tile" />
+                </div>
+              </div>
+            ) : (
+              <GridView
+                isTeacher={isTeacher}
+                activeStudentTrack={activeStudentTrack}
+                teacherTrack={teacherTrack}
+                remoteStudents={remoteStudents}
+                gridStudents={gridStudents}
+                cameraTracksCount={cameraTracks.length}
+                layoutMode={layoutMode === 'focus' ? 'tiled' : layoutMode}
+                pinnedTrackSid={pinnedTrackSid}
+                setPinnedTrackSid={setPinnedTrackSid}
+                spotlightTrackSid={spotlightTrackSid}
+                setSpotlightTrackSid={setSpotlightTrackSid}
+                onBroadcastSpotlight={handleBroadcastSpotlight}
+                localTrack={localTrack}
+              />
+            )
+          )}
+
         </div>
 
-        {/* RIGHT PANE: Participant Videos Sidebar (Only visible when Whiteboard or Screen Share is active) */}
+        {/* Student Sidebar for Desktop (only when Split Layout is active) */}
         {showSplitLayout && (
           <StudentSidebar
             showWhiteboard={showWhiteboard}
@@ -1375,14 +1731,13 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               setIsFocusMode(nextFocus);
               setLayoutMode(nextFocus ? 'focus' : 'sidebar');
             }}
-                        isMobile={isMobile}
-            mobileControlsVisible={mobileControlsVisible}
+            isMobile={false}
             isLandscape={layoutLandscape}
             isFullscreen={isFullscreen}
           />
         )}
 
-        {/* RIGHT PANE: Chat & Participants Panel */}
+        {/* Chat Panel for Desktop when active */}
         {activeRightPanelTab && localParticipant && (
           <ChatPanel
             activeTab={activeRightPanelTab}
@@ -1400,56 +1755,297 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             allowedScreenShareStudents={allowedScreenShareStudents}
             onToggleGlobalPermission={handleToggleGlobalPermission}
             onToggleStudentPermission={handleToggleStudentPermission}
-            isMobile={isMobile}
+            isMobile={false}
             isTeacher={isTeacher}
             editor={editor}
+            isPinned={isChatPinned}
+            onTogglePin={() => setIsChatPinned(!isChatPinned)}
+          />
+        )}
+
+        {/* Participants dropdown overlay */}
+        {showParticipantsOverlay && (
+          <ParticipantsOverlay
+            participants={participants}
+            localParticipant={localParticipant}
+            roomName={roomName}
+            isTeacher={isTeacher}
+            globalWhiteboardAllowed={globalWhiteboardAllowed}
+            globalScreenShareAllowed={globalScreenShareAllowed}
+            allowedWhiteboardStudents={allowedWhiteboardStudents}
+            allowedScreenShareStudents={allowedScreenShareStudents}
+            onToggleGlobalPermission={handleToggleGlobalPermission}
+            onToggleStudentPermission={handleToggleStudentPermission}
+            onClose={() => setShowParticipantsOverlay(false)}
+            onStartDM={handleStartDM}
           />
         )}
 
       </div>
+      {/* 4. BOTTOM BAR (72px, spans full width, row 3) */}
+      <div className="col-span-2 h-[72px] bg-surface border-t border-border px-6 py-4 flex items-center justify-between relative z-50">
+        
+        {/* Controls container (spaced evenly) */}
+        <div className="flex items-center gap-3">
+          {/* Mic Button */}
+          <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"} align="left">
+            <button
+              onClick={toggleMicrophone}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                isMicrophoneEnabled 
+                  ? 'bg-surface-hi hover:bg-border/60 text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-danger'
+              }`}
+            >
+              {isMicrophoneEnabled ? (
+                <IconMicrophone className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              ) : (
+                <IconMicrophoneOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              )}
+            </button>
+          </Tooltip>
 
-      {/* BOTTOM ROW: Full-width Google Meet Style Footer */}
-      {!activeRightPanelTab && (
-        <Controls
-          roomName={roomName}
-          isMicrophoneEnabled={isMicrophoneEnabled}
-          toggleMicrophone={toggleMicrophone}
-          isCameraEnabled={isCameraEnabled}
-          toggleCamera={toggleCamera}
-          isScreenShareEnabled={isScreenShareEnabled}
-          toggleScreenShare={toggleScreenShare}
-          showWhiteboard={showWhiteboard}
-          toggleWhiteboard={toggleWhiteboard}
-          isTeacher={isTeacher}
-          isExporting={isExporting}
-          handleEndClass={handleEndClass}
-          onLeave={() => {
-            if (isTeacher) {
-              setShowEndCallModal(true);
-            } else {
-              onLeave();
-            }
-          }}
-          exportedPdfUrl={exportedPdfUrl}
-          activeRightPanelTab={activeRightPanelTab}
-          setActiveRightPanelTab={setActiveRightPanelTab}
-          isWhiteboardAllowed={isWhiteboardAllowed}
-          isScreenShareAllowed={isScreenShareAllowed}
-          layoutMode={layoutMode}
-          setLayoutMode={setLayoutMode}
-          showSplitLayout={showSplitLayout}
-                    isMobile={isMobile}
-          mobileControlsVisible={mobileControlsVisible}
-          onHideControls={() => setMobileControlsVisible(false)}
-        />
-      )}
+          {/* Camera Button */}
+          <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"} align="left">
+            <button
+              onClick={toggleCamera}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                isCameraEnabled 
+                  ? 'bg-surface-hi hover:bg-border/60 text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-danger'
+              }`}
+            >
+              {isCameraEnabled ? (
+                <IconVideo className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              ) : (
+                <IconVideoOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              )}
+            </button>
+          </Tooltip>
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-border/30" />
+
+          {/* Screen Share Button */}
+          <Tooltip content={!isScreenShareAllowed ? "Screen Share Disabled by Teacher" : "Toggle Screen Share"}>
+            <button
+              disabled={!isScreenShareAllowed}
+              onClick={toggleScreenShare}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md relative ${
+                !isScreenShareAllowed
+                  ? 'bg-surface-hi opacity-40 cursor-not-allowed text-text-muted'
+                  : isScreenShareEnabled
+                  ? 'bg-border text-text cursor-pointer'
+                  : 'bg-surface-hi hover:bg-border/60 text-text cursor-pointer'
+              }`}
+            >
+              <IconScreenShare className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              {!isScreenShareAllowed && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-danger rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10 scale-90">
+                  <IconLock className="w-2.5 h-2.5" strokeWidth={STROKE_WIDTH} />
+                </div>
+              )}
+            </button>
+          </Tooltip>
+
+          {/* Whiteboard Button */}
+          <Tooltip content="Toggle Whiteboard">
+            <button
+              onClick={toggleWhiteboard}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md relative cursor-pointer ${
+                showWhiteboard 
+                  ? 'bg-border text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-text'
+              }`}
+            >
+              {showWhiteboard ? (
+                <IconChalkboard className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              ) : (
+                <IconChalkboardOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              )}
+            </button>
+          </Tooltip>
+
+          {/* View Mode Button with Dropdown arrow */}
+          <div className="relative">
+            <Tooltip content="Adjust View">
+              <button
+                onClick={() => setShowLayoutMenu(prev => !prev)}
+                className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer ${
+                  showLayoutMenu 
+                    ? 'bg-border text-text' 
+                    : 'bg-surface-hi hover:bg-border/60 text-text'
+                }`}
+              >
+                <IconLayoutDashboard className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              </button>
+            </Tooltip>
+
+            {/* Existing View switcher dropdown menu */}
+            {showLayoutMenu && (
+              <div 
+                ref={layoutMenuRef}
+                className="absolute bottom-14 left-0 w-60 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+              >
+                <div className="px-3 py-1.5 border-b border-border/20 select-none">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Adjust View</span>
+                </div>
+                <button
+                  onClick={() => { setLayoutMode('auto'); setShowLayoutMenu(false); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                    layoutMode === 'auto' ? 'text-accent font-bold bg-accent/10' : 'text-text'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconTableSpark className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
+                    <div className="flex flex-col">
+                      <span>Auto (dynamic)</span>
+                      <span className="text-[9px] text-text-muted font-normal">Adapts to active content</span>
+                    </div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setLayoutMode('tiled'); setShowLayoutMenu(false); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                    layoutMode === 'tiled' ? 'text-accent font-bold bg-accent/10' : 'text-text'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconLayoutGrid className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
+                    <div className="flex flex-col">
+                      <span>Tiled</span>
+                      <span className="text-[9px] text-text-muted font-normal">All participants in grid</span>
+                    </div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setLayoutMode('sidebar'); setShowLayoutMenu(false); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                    layoutMode === 'sidebar' ? 'text-accent font-bold bg-accent/10' : 'text-text'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconLayoutSidebarRight className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
+                    <div className="flex flex-col">
+                      <span>Sidebar</span>
+                      <span className="text-[9px] text-text-muted font-normal">Featured center with side list</span>
+                    </div>
+                  </div>
+                </button>
+                <button
+                  disabled={!showSplitLayout}
+                  onClick={() => {
+                    if (showSplitLayout) {
+                      setLayoutMode('focus');
+                      setShowLayoutMenu(false);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors text-left text-xs font-semibold select-none ${
+                    !showSplitLayout
+                      ? 'opacity-40 cursor-not-allowed text-text-muted'
+                      : layoutMode === 'focus'
+                      ? 'text-accent font-bold bg-accent/10 cursor-pointer'
+                      : 'text-text cursor-pointer'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <IconRectangle className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
+                    <div className="flex flex-col">
+                      <span>Focus View</span>
+                      <span className="text-[9px] text-text-muted font-normal">Hide sidebar in split mode</span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-border/30" />
+
+          {/* Chat Button */}
+          <Tooltip content="Chat Panel">
+            <button
+              onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'chat' ? null : 'chat')}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                activeRightPanelTab === 'chat' 
+                  ? 'bg-border text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-text'
+              }`}
+            >
+              <IconMessage className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+            </button>
+          </Tooltip>
+
+          {/* Ask AI Button */}
+          <Tooltip content={isTeacher ? "Student Doubts" : "Ask AI"}>
+            <button
+              onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'doubt' ? null : 'doubt')}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                activeRightPanelTab === 'doubt' 
+                  ? 'bg-border text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-text'
+              }`}
+            >
+              <IconGalaxy className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+            </button>
+          </Tooltip>
+
+          {/* Summary Button */}
+          <Tooltip content="Class Summary">
+            <button
+              onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'summary' ? null : 'summary')}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                activeRightPanelTab === 'summary' 
+                  ? 'bg-border text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-text'
+              }`}
+            >
+              <IconFileTextSpark className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+            </button>
+          </Tooltip>
+
+          {/* MoM Button */}
+          <Tooltip content="Meeting Minutes (MoM)">
+            <button
+              onClick={() => setShowMomOverlay(true)}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md relative ${
+                showMomOverlay 
+                  ? 'bg-border text-text' 
+                  : 'bg-surface-hi hover:bg-border/60 text-text'
+              }`}
+            >
+              <IconFileText className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Group 4: End Class / Leave (pushed to far right via ml-auto wrapper) */}
+        <div className="ml-auto flex items-center">
+          <Tooltip content={isTeacher ? "End Class" : "Leave Classroom"} align="right">
+            <button
+              onClick={() => {
+                if (isTeacher) {
+                  setShowEndCallModal(true);
+                } else {
+                  onLeave();
+                }
+              }}
+              className="w-11 h-11 bg-danger hover:bg-danger/80 text-white rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-lg"
+            >
+              <Phone className="w-5 h-5 transform rotate-[135deg]" strokeWidth={STROKE_WIDTH} />
+            </button>
+          </Tooltip>
+        </div>
+
+      </div>
 
       {/* End Call Options Modal for Teachers */}
       {showEndCallModal && (
-        <div className="fixed inset-0 z-[1000000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0b0f19]/90 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-lg font-bold text-white text-center font-sans">End Session</h3>
-            <p className="text-sm text-foreground/60 text-center leading-normal font-sans">
+            <p className="text-sm text-text-muted text-center leading-normal font-sans">
               Choose how you want to exit the class session.
             </p>
             <div className="flex flex-col gap-2.5 pt-2 font-sans">
@@ -1458,7 +2054,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                   setShowEndCallModal(false);
                   handleEndClass(true);
                 }}
-                className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                className="w-full py-3 bg-danger hover:bg-danger/90 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
               >
                 End Call for All
               </button>
@@ -1467,13 +2063,13 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                   setShowEndCallModal(false);
                   onLeave();
                 }}
-                className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-[#ffffff] font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+                className="w-full py-3 bg-surface-hi hover:bg-border/30 border border-border text-text font-semibold rounded-xl text-sm transition-colors cursor-pointer"
               >
                 Leave Meeting
               </button>
               <button
                 onClick={() => setShowEndCallModal(false)}
-                className="w-full py-2 text-xs text-foreground/45 hover:text-white font-semibold transition-colors cursor-pointer"
+                className="w-full py-2 text-xs text-text-muted hover:text-white font-semibold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1484,26 +2080,34 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
       {/* Exporting / Publishing Notes Overlay */}
       {isExporting && (
-        <div className="fixed inset-0 z-[1000000] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
           <div className="flex flex-col items-center space-y-4 max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="relative w-16 h-16">
-              {/* Outer spinning ring */}
-              <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-              {/* Inner loading ring */}
-              <div className="absolute inset-2 rounded-full border-4 border-b-emerald-400 border-t-transparent border-r-transparent border-l-transparent animate-spin duration-1000 ease-in-out"></div>
-              {/* Center pulsing dot */}
+              <div className="absolute inset-0 rounded-full border-4 border-t-accent border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+              <div className="absolute inset-2 rounded-full border-4 border-b-success border-t-transparent border-r-transparent border-l-transparent animate-spin duration-1000 ease-in-out"></div>
               <div className="absolute inset-5.5 rounded-full bg-white/20 animate-pulse"></div>
             </div>
             <h3 className="text-xl font-bold text-white font-sans mt-4">Publishing Notes</h3>
-            <p className="text-sm text-foreground/60 leading-relaxed font-sans">
-              Generating high-fidelity multi-page PDF notes and uploading them. Please wait a moment...
+            <p className="text-sm text-text-muted leading-relaxed font-sans">
+              Generating high-fidelity multi-page PDF notes and uploading them. Please wait...
             </p>
           </div>
         </div>
       )}
 
+      {/* MoM Overlay Component */}
+      {showMomOverlay && (
+        <MomOverlay 
+          roomName={roomName}
+          messages={messages}
+          topicNotes={topicNotes}
+          onClose={() => setShowMomOverlay(false)} 
+        />
+      )}
+
     </div>
   );
+  /* DESKTOP ONLY END */
 }
 
 export default function VideoRoom({
