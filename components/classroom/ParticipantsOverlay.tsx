@@ -171,7 +171,7 @@ export default function ParticipantsOverlay({
     <div 
       ref={containerRef}
       className={isMobile
-        ? 'fixed inset-0 z-[130] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col font-sans'
+        ? 'fixed inset-0 z-[300] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col font-sans'
         : 'absolute right-4 top-4 w-[340px] max-h-[60vh] overflow-y-auto z-50 bg-surface border border-border rounded-xl shadow-2xl p-4 flex flex-col gap-3 scrollbar-thin text-text animate-in fade-in zoom-in-95 duration-150 font-sans'
       }
     >

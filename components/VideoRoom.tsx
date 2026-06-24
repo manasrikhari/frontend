@@ -452,7 +452,9 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
     const handleUserActivity = (e: MouseEvent | TouchEvent) => {
       const mouseEvent = e as MouseEvent;
-      if (mouseEvent.clientY >= window.innerHeight * 0.85) {
+      const isNearBottom = mouseEvent.clientY >= window.innerHeight * 0.85;
+      const isNearTop = mouseEvent.clientY <= 68;
+      if (isNearBottom || isNearTop) {
         setControlsVisible(true);
         if (timer) {
           clearTimeout(timer);
@@ -476,9 +478,11 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         window.removeEventListener('pointerdown', handleUserActivity as any);
       };
     } else {
-      // If hidden, show controls ONLY when mouse moves or is clicked near the bottom (bottom 15% of viewport)
+      // If hidden, show controls ONLY when mouse moves or is clicked near the bottom (bottom 15%) or near the top (header + buffer)
       const handleActivityHidden = (e: MouseEvent) => {
-        if (e.clientY >= window.innerHeight * 0.85) {
+        const isNearBottom = e.clientY >= window.innerHeight * 0.85;
+        const isNearTop = e.clientY <= 68;
+        if (isNearBottom || isNearTop) {
           setControlsVisible(true);
         }
       };
@@ -1447,7 +1451,9 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       >
         {/* Mobile Top Bar — slides up/down in sync with footer controls */}
         <div
-          className={`absolute top-0 left-0 right-0 z-50 h-[48px] bg-[#090d1a]/95 border-b border-white/10 flex items-center justify-between px-4 select-none transition-all duration-300 pointer-events-auto ${
+          className={`absolute top-0 left-0 right-0 z-50 h-[48px] bg-[#090d1a]/95 border-b border-white/10 flex items-center justify-between pr-4 select-none transition-all duration-300 pointer-events-auto ${
+            isWhiteboardAllowed && showWhiteboard ? 'pl-[60px]' : 'pl-4'
+          } ${
             controlsVisible
               ? 'translate-y-0 opacity-100'
               : '-translate-y-full opacity-0 pointer-events-none'
@@ -1516,13 +1522,12 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               
 
               
-              {!(isMobile && !layoutLandscape && controlsVisible) && (
-                <FloatingTeacherTile
-                  teacherTrack={teacherTrack}
-                  isFocusMode={isFocusMode}
-                  showSplitLayout={showSplitLayout}
-                />
-              )}
+              <FloatingTeacherTile
+                teacherTrack={teacherTrack}
+                isFocusMode={isFocusMode}
+                showSplitLayout={showSplitLayout}
+                isOverlayOpen={showParticipantsOverlay || !!activeRightPanelTab || (isMobile && !layoutLandscape && controlsVisible)}
+              />
 
               {teacherAbsentTimeLeft !== null && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4">
@@ -1892,6 +1897,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             teacherTrack={teacherTrack}
             isFocusMode={isFocusMode}
             showSplitLayout={showSplitLayout}
+            isOverlayOpen={showParticipantsOverlay || (!isChatPinned && !!activeRightPanelTab)}
           />
 
           {/* Teacher absent timer */}
@@ -2226,77 +2232,59 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             {showLayoutMenu && (
               <div 
                 ref={layoutMenuRef}
-                className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-60 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+                className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-surface border border-border rounded-xl shadow-2xl p-2.5 flex flex-col gap-1.5 text-text z-[300] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
               >
-                <div className="px-3 py-1.5 border-b border-border/20 select-none">
+                <div className="px-3 py-1 border-b border-border/20 select-none text-left">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Adjust View</span>
                 </div>
-                <button
-                  onClick={() => { setLayoutMode('auto'); setShowLayoutMenu(false); }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
-                    layoutMode === 'auto' ? 'text-accent font-bold bg-accent/10' : 'text-text'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <IconTableSpark className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
-                    <div className="flex flex-col">
-                      <span>Auto (dynamic)</span>
-                      <span className="text-[9px] text-text-muted font-normal">Adapts to active content</span>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => { setLayoutMode('tiled'); setShowLayoutMenu(false); }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
-                    layoutMode === 'tiled' ? 'text-accent font-bold bg-accent/10' : 'text-text'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <IconLayoutGrid className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
-                    <div className="flex flex-col">
-                      <span>Tiled</span>
-                      <span className="text-[9px] text-text-muted font-normal">All participants in grid</span>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => { setLayoutMode('sidebar'); setShowLayoutMenu(false); }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
-                    layoutMode === 'sidebar' ? 'text-accent font-bold bg-accent/10' : 'text-text'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <IconLayoutSidebarRight className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
-                    <div className="flex flex-col">
-                      <span>Sidebar</span>
-                      <span className="text-[9px] text-text-muted font-normal">Featured center with side list</span>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  disabled={!showSplitLayout}
-                  onClick={() => {
-                    if (showSplitLayout) {
-                      setLayoutMode('focus');
-                      setShowLayoutMenu(false);
-                    }
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-surface-hi transition-colors text-left text-xs font-semibold select-none ${
-                    !showSplitLayout
-                      ? 'opacity-40 cursor-not-allowed text-text-muted'
-                      : layoutMode === 'focus'
-                      ? 'text-accent font-bold bg-accent/10 cursor-pointer'
-                      : 'text-text cursor-pointer'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <IconRectangle className="w-3.5 h-3.5" strokeWidth={STROKE_WIDTH} />
-                    <div className="flex flex-col">
-                      <span>Focus View</span>
-                      <span className="text-[9px] text-text-muted font-normal">Hide sidebar in split mode</span>
-                    </div>
-                  </div>
-                </button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => { setLayoutMode('auto'); setShowLayoutMenu(false); }}
+                    className={`flex flex-col items-center gap-1 px-2.5 py-2 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                      layoutMode === 'auto' ? 'text-accent font-bold bg-accent/10 border border-accent/20' : 'text-text border border-transparent'
+                    }`}
+                  >
+                    <IconTableSpark className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
+                    <span>Auto</span>
+                  </button>
+                  <button
+                    onClick={() => { setLayoutMode('tiled'); setShowLayoutMenu(false); }}
+                    className={`flex flex-col items-center gap-1 px-2.5 py-2 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                      layoutMode === 'tiled' ? 'text-accent font-bold bg-accent/10 border border-accent/20' : 'text-text border border-transparent'
+                    }`}
+                  >
+                    <IconLayoutGrid className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
+                    <span>Tiled</span>
+                  </button>
+                  <button
+                    onClick={() => { setLayoutMode('sidebar'); setShowLayoutMenu(false); }}
+                    className={`flex flex-col items-center gap-1 px-2.5 py-2 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                      layoutMode === 'sidebar' ? 'text-accent font-bold bg-accent/10 border border-accent/20' : 'text-text border border-transparent'
+                    }`}
+                  >
+                    <IconLayoutSidebarRight className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
+                    <span>Sidebar</span>
+                  </button>
+                  <button
+                    disabled={!showSplitLayout}
+                    onClick={() => {
+                      if (showSplitLayout) {
+                        setLayoutMode('focus');
+                        setShowLayoutMenu(false);
+                      }
+                    }}
+                    className={`flex flex-col items-center gap-1 px-2.5 py-2 rounded-lg hover:bg-surface-hi transition-colors text-center text-xs font-semibold select-none ${
+                      !showSplitLayout
+                        ? 'opacity-40 cursor-not-allowed text-text-muted border border-transparent'
+                        : layoutMode === 'focus'
+                        ? 'text-accent font-bold bg-accent/10 border border-accent/20 cursor-pointer'
+                        : 'text-text border border-transparent cursor-pointer'
+                    }`}
+                  >
+                    <IconRectangle className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
+                    <span>Focus</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

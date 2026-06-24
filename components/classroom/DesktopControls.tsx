@@ -541,94 +541,72 @@ export default function DesktopControls({
 
           {/* Adjust View Dropdown Menu */}
           {showLayoutMenu && (
-            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
-              <div className="px-3 py-2 border-b border-white/5 select-none text-left">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[300] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+              <div className="px-3 py-1.5 border-b border-white/5 select-none text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
               </div>
 
-              <button
-                onClick={() => {
-                  setLayoutMode('auto');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'auto' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconTableSpark className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Auto (dynamic)</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Adapts to active content</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setLayoutMode('tiled');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'tiled' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconLayoutGrid className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Tiled</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">All participants in grid</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setLayoutMode('sidebar');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'sidebar' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconLayoutSidebarRight className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Sidebar</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">
-                      Featured center with side list
-                    </span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                disabled={!showSplitLayout}
-                onClick={() => {
-                  if (showSplitLayout) {
-                    setLayoutMode('focus');
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                <button
+                  onClick={() => {
+                    setLayoutMode('auto');
                     setShowLayoutMenu(false);
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors text-left text-sm font-semibold select-none ${
-                  !showSplitLayout
-                    ? 'opacity-40 cursor-not-allowed text-[#C2CCDE]/50'
-                    : layoutMode === 'focus'
-                    ? 'text-indigo-400 bg-indigo-500/10 cursor-pointer'
-                    : 'text-[#C2CCDE] cursor-pointer'
-                }`}
-                title={!showSplitLayout ? 'Focus View (Only available during presentations)' : ''}
-              >
-                <div className="flex items-center gap-3">
+                  }}
+                  className={`flex flex-col items-center gap-1.5 px-2.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                    layoutMode === 'auto' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <IconTableSpark className="w-4 h-4" />
+                  <span>Auto</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setLayoutMode('tiled');
+                    setShowLayoutMenu(false);
+                  }}
+                  className={`flex flex-col items-center gap-1.5 px-2.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                    layoutMode === 'tiled' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <IconLayoutGrid className="w-4 h-4" />
+                  <span>Tiled</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setLayoutMode('sidebar');
+                    setShowLayoutMenu(false);
+                  }}
+                  className={`flex flex-col items-center gap-1.5 px-2.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-center text-xs font-semibold select-none ${
+                    layoutMode === 'sidebar' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                  }`}
+                >
+                  <IconLayoutSidebarRight className="w-4 h-4" />
+                  <span>Sidebar</span>
+                </button>
+
+                <button
+                  disabled={!showSplitLayout}
+                  onClick={() => {
+                    if (showSplitLayout) {
+                      setLayoutMode('focus');
+                      setShowLayoutMenu(false);
+                    }
+                  }}
+                  className={`flex flex-col items-center gap-1.5 px-2.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-center text-xs font-semibold select-none ${
+                    !showSplitLayout
+                      ? 'opacity-40 cursor-not-allowed text-[#C2CCDE]/50'
+                      : layoutMode === 'focus'
+                      ? 'text-indigo-400 bg-indigo-500/10 cursor-pointer'
+                      : 'text-[#C2CCDE] cursor-pointer'
+                  }`}
+                  title={!showSplitLayout ? 'Focus View (Only available during presentations)' : ''}
+                >
                   <IconRectangle className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Focus View</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">
-                      Whiteboard/screen share only
-                    </span>
-                  </div>
-                </div>
-              </button>
+                  <span>Focus</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

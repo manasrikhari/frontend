@@ -8,12 +8,14 @@ interface FloatingTeacherTileProps {
   teacherTrack: TrackReferenceOrPlaceholder | undefined;
   isFocusMode: boolean;
   showSplitLayout: boolean;
+  isOverlayOpen?: boolean;
 }
 
 export default function FloatingTeacherTile({
   teacherTrack,
   isFocusMode,
   showSplitLayout,
+  isOverlayOpen = false,
 }: FloatingTeacherTileProps) {
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [isVisible, setIsVisible] = useState(true);
@@ -112,7 +114,7 @@ export default function FloatingTeacherTile({
     }
   }, []);
 
-  if (!isFocusMode || !showSplitLayout || !teacherTrack || !isVisible) return null;
+  if (!isFocusMode || !showSplitLayout || !teacherTrack || !isVisible || isOverlayOpen) return null;
 
   return (
     <div

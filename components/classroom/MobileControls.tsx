@@ -132,7 +132,7 @@ export default function MobileControls({
         }
         onHideControls();
       }}
-      className={`w-full h-16 bg-[#090d1a]/95 border-t border-white/10 px-4 py-2 flex items-center justify-center z-40 select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
+      className={`w-full h-16 bg-[#090d1a]/95 border-t border-white/10 px-4 py-2 flex items-center justify-center z-[290] select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
         mobileControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
       }`}
     >
@@ -272,7 +272,7 @@ export default function MobileControls({
 
           {/* Collapsible Dropdown Settings Menu */}
           {showDeviceSettings && (
-            <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 animate-out fade-out duration-150">
+            <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[300] animate-in fade-in slide-in-from-bottom-2 duration-150 animate-out fade-out duration-150">
               
               {/* Conditional Items inside Ellipses menu for Students */}
               {!isTeacher && (
