@@ -9,6 +9,7 @@ import {
   useConnectionState,
   useRoomContext,
   useParticipants,
+  useMediaDeviceSelect,
 } from '@livekit/components-react';
 import { Track, Room, RoomOptions, RoomConnectOptions } from 'livekit-client';
 import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
@@ -41,7 +42,8 @@ import {
   IconFileText,
   IconLock,
   IconGalaxy,
-  IconFileTextSpark
+  IconFileTextSpark,
+  IconChevronUp
 } from '@tabler/icons-react';
 import { Phone } from 'lucide-react';
 import Tooltip from './classroom/Tooltip';
@@ -55,7 +57,6 @@ import GridView from './classroom/GridView';
 import ChatPanel from './classroom/ChatPanel';
 import LeftRail from './classroom/LeftRail';
 import ParticipantsOverlay from './classroom/ParticipantsOverlay';
-import MomOverlay from './classroom/MomOverlay';
 
 export interface ChatMessage {
   id: string;
@@ -110,6 +111,18 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const connectionState = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const isTeacher = localParticipant?.metadata === 'teacher';
+
+  const {
+    devices: audioDevices,
+    activeDeviceId: activeAudioId,
+    setActiveMediaDevice: setActiveAudioDevice,
+  } = useMediaDeviceSelect({ kind: 'audioinput', requestPermissions: true });
+
+  const {
+    devices: videoDevices,
+    activeDeviceId: activeVideoId,
+    setActiveMediaDevice: setActiveVideoDevice,
+  } = useMediaDeviceSelect({ kind: 'videoinput', requestPermissions: true });
 
   const [startedAtMs] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -389,10 +402,13 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [activeChatTarget, setActiveChatTarget] = useState<{ identity: string; name: string } | null>(null);
 
   const [showParticipantsOverlay, setShowParticipantsOverlay] = useState(false);
-  const [showMomOverlay, setShowMomOverlay] = useState(false);
   const [isChatPinned, setIsChatPinned] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const layoutMenuRef = useRef<HTMLDivElement>(null);
+  const [showMicMenu, setShowMicMenu] = useState(false);
+  const micMenuRef = useRef<HTMLDivElement>(null);
+  const [showCamMenu, setShowCamMenu] = useState(false);
+  const camMenuRef = useRef<HTMLDivElement>(null);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   useEffect(() => {
@@ -435,6 +451,35 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showLayoutMenu]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (micMenuRef.current && !micMenuRef.current.contains(event.target as Node)) {
+        setShowMicMenu(false);
+      }
+    }
+    if (showMicMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMicMenu]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (camMenuRef.current && !camMenuRef.current.contains(event.target as Node)) {
+        setShowCamMenu(false);
+      }
+    }
+    if (showCamMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCamMenu]);
+
   const [globalWhiteboardAllowed, setGlobalWhiteboardAllowed] = useState(() =>
     getSavedState(roomName, 'global_whiteboard_allowed', false, sessionToken)
   );
@@ -1291,6 +1336,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         {/* Main Workspace + Sidebars (Top Flex Row) */}
         <div className="flex-1 flex flex-row min-h-0 relative overflow-hidden">
           
+          {isWhiteboardAllowed && (
+            <LeftRail 
+              editor={editor} 
+              showWhiteboard={showWhiteboard} 
+              strokeWidth={STROKE_WIDTH}
+            />
+          )}
+
           {/* LEFT / CENTER PANE: Active Content (Grid OR Whiteboard OR Screen Share) */}
           <div className="flex-1 flex flex-col h-full overflow-hidden relative">
 
@@ -1783,86 +1836,180 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
       </div>
       {/* 4. BOTTOM BAR (72px, spans full width, row 3) */}
-      <div className="col-span-2 h-[72px] bg-surface border-t border-border px-6 py-4 flex items-center justify-between relative z-50">
+      <div className="col-span-2 h-[72px] bg-surface border-t border-border px-6 py-1.5 flex items-center justify-between relative z-50">
         
         {/* Controls container (spaced evenly) */}
         <div className="flex items-center gap-3">
           {/* Mic Button */}
-          <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"} align="left">
-            <button
-              onClick={toggleMicrophone}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
-                isMicrophoneEnabled 
-                  ? 'bg-surface-hi hover:bg-border/60 text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-danger'
-              }`}
-            >
-              {isMicrophoneEnabled ? (
-                <IconMicrophone className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-              ) : (
-                <IconMicrophoneOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-              )}
-            </button>
-          </Tooltip>
+          <div className="relative" ref={micMenuRef}>
+            <div className={`relative w-[84px] h-[60px] rounded-xl border text-text flex items-center p-0.5 transition-all duration-200 ${
+              isMicrophoneEnabled ? 'border-border/15 bg-surface-hi/20' : 'border-transparent bg-transparent'
+            }`}>
+              {/* Mute/Unmute main toggle button */}
+              <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"} align="left" className="flex-1 h-full">
+                <button
+                  onClick={toggleMicrophone}
+                  className="w-full h-full flex flex-col items-center justify-center rounded-lg hover:bg-white/5 transition-colors cursor-pointer gap-0.5"
+                >
+                  {isMicrophoneEnabled ? (
+                    <IconMicrophone className="w-5.5 h-5.5" strokeWidth={STROKE_WIDTH} />
+                  ) : (
+                    <IconMicrophoneOff className="w-5.5 h-5.5 text-danger" strokeWidth={STROKE_WIDTH} />
+                  )}
+                  <span className="text-[11px] font-medium leading-none select-none">Audio</span>
+                </button>
+              </Tooltip>
+
+              {/* Chevron split button on the right */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMicMenu(prev => !prev);
+                }}
+                className="w-5.5 h-full flex items-center justify-center rounded-lg hover:bg-white/10 text-text-muted hover:text-white transition-colors cursor-pointer"
+              >
+                <IconChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Mic device select dropdown menu */}
+            {showMicMenu && (
+              <div 
+                className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+              >
+                <div className="px-3 py-1.5 border-b border-border/20 select-none text-left">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Select Microphone</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                  {audioDevices.map((device) => (
+                    <button
+                      key={device.deviceId}
+                      onClick={() => {
+                        setActiveAudioDevice(device.deviceId);
+                        setShowMicMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                        activeAudioId === device.deviceId ? 'text-accent font-bold bg-accent/10' : 'text-text'
+                      }`}
+                    >
+                      <span className="truncate">{device.label || `Microphone ${device.deviceId.slice(0, 5)}`}</span>
+                    </button>
+                  ))}
+                  {audioDevices.length === 0 && (
+                    <span className="px-3 py-2 text-xs text-text-muted">No microphones found</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Camera Button */}
-          <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"} align="left">
-            <button
-              onClick={toggleCamera}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
-                isCameraEnabled 
-                  ? 'bg-surface-hi hover:bg-border/60 text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-danger'
-              }`}
-            >
-              {isCameraEnabled ? (
-                <IconVideo className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-              ) : (
-                <IconVideoOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-              )}
-            </button>
-          </Tooltip>
+          <div className="relative" ref={camMenuRef}>
+            <div className={`relative w-[84px] h-[60px] rounded-xl border text-text flex items-center p-0.5 transition-all duration-200 ${
+              isCameraEnabled ? 'border-border/15 bg-surface-hi/20' : 'border-transparent bg-transparent'
+            }`}>
+              {/* Video Toggle main button */}
+              <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"} align="left" className="flex-1 h-full">
+                <button
+                  onClick={toggleCamera}
+                  className="w-full h-full flex flex-col items-center justify-center rounded-lg hover:bg-white/5 transition-colors cursor-pointer gap-0.5"
+                >
+                  {isCameraEnabled ? (
+                    <IconVideo className="w-5.5 h-5.5" strokeWidth={STROKE_WIDTH} />
+                  ) : (
+                    <IconVideoOff className="w-5.5 h-5.5 text-danger" strokeWidth={STROKE_WIDTH} />
+                  )}
+                  <span className="text-[11px] font-medium leading-none select-none">Video</span>
+                </button>
+              </Tooltip>
+
+              {/* Chevron split button on the right */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCamMenu(prev => !prev);
+                }}
+                className="w-5.5 h-full flex items-center justify-center rounded-lg hover:bg-white/10 text-text-muted hover:text-white transition-colors cursor-pointer"
+              >
+                <IconChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Camera device select dropdown menu */}
+            {showCamMenu && (
+              <div 
+                className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+              >
+                <div className="px-3 py-1.5 border-b border-border/20 select-none text-left">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Select Camera</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                  {videoDevices.map((device) => (
+                    <button
+                      key={device.deviceId}
+                      onClick={() => {
+                        setActiveVideoDevice(device.deviceId);
+                        setShowCamMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-surface-hi transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                        activeVideoId === device.deviceId ? 'text-accent font-bold bg-accent/10' : 'text-text'
+                      }`}
+                    >
+                      <span className="truncate">{device.label || `Camera ${device.deviceId.slice(0, 5)}`}</span>
+                    </button>
+                  ))}
+                  {videoDevices.length === 0 && (
+                    <span className="px-3 py-2 text-xs text-text-muted">No cameras found</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Divider */}
-          <div className="w-px h-5 bg-border/30" />
+          <div className="w-px h-8 bg-border/30 self-center mx-1" />
 
           {/* Screen Share Button */}
-          <Tooltip content={!isScreenShareAllowed ? "Screen Share Disabled by Teacher" : "Toggle Screen Share"}>
-            <button
-              disabled={!isScreenShareAllowed}
-              onClick={toggleScreenShare}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md relative ${
-                !isScreenShareAllowed
-                  ? 'bg-surface-hi opacity-40 cursor-not-allowed text-text-muted'
-                  : isScreenShareEnabled
-                  ? 'bg-border text-text cursor-pointer'
-                  : 'bg-surface-hi hover:bg-border/60 text-text cursor-pointer'
-              }`}
-            >
-              <IconScreenShare className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-              {!isScreenShareAllowed && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-danger rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10 scale-90">
-                  <IconLock className="w-2.5 h-2.5" strokeWidth={STROKE_WIDTH} />
-                </div>
-              )}
-            </button>
-          </Tooltip>
+          <div className="relative">
+            <Tooltip content={!isScreenShareAllowed ? "Screen Share Disabled by Teacher" : "Toggle Screen Share"}>
+              <button
+                disabled={!isScreenShareAllowed}
+                onClick={toggleScreenShare}
+                className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
+                  !isScreenShareAllowed
+                    ? 'opacity-40 cursor-not-allowed text-text-muted border-transparent bg-transparent'
+                    : isScreenShareEnabled
+                    ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20'
+                    : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
+                }`}
+              >
+                <IconScreenShare className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
+                <span className="text-[11px] font-medium leading-none select-none">Share</span>
+              </button>
+            </Tooltip>
+            {!isScreenShareAllowed && (
+              <span className="absolute top-1 right-1.5 w-3.5 h-3.5 bg-danger rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10 scale-90">
+                <IconLock className="w-2.5 h-2.5" strokeWidth={STROKE_WIDTH} />
+              </span>
+            )}
+          </div>
 
           {/* Whiteboard Button */}
           <Tooltip content="Toggle Whiteboard">
             <button
               onClick={toggleWhiteboard}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md relative cursor-pointer ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 showWhiteboard 
-                  ? 'bg-border text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-text'
+                  ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20' 
+                  : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
               }`}
             >
               {showWhiteboard ? (
-                <IconChalkboard className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+                <IconChalkboard className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
               ) : (
-                <IconChalkboardOff className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+                <IconChalkboardOff className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
               )}
+              <span className="text-[11px] font-medium leading-none select-none tracking-tight">Whiteboard</span>
             </button>
           </Tooltip>
 
@@ -1871,13 +2018,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             <Tooltip content="Adjust View">
               <button
                 onClick={() => setShowLayoutMenu(prev => !prev)}
-                className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md cursor-pointer ${
+                className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                   showLayoutMenu 
-                    ? 'bg-border text-text' 
-                    : 'bg-surface-hi hover:bg-border/60 text-text'
+                    ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20' 
+                    : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
                 }`}
               >
-                <IconLayoutDashboard className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+                <IconLayoutDashboard className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
+                <span className="text-[11px] font-medium leading-none select-none">View</span>
               </button>
             </Tooltip>
 
@@ -1885,7 +2033,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
             {showLayoutMenu && (
               <div 
                 ref={layoutMenuRef}
-                className="absolute bottom-14 left-0 w-60 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+                className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-60 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-text z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
               >
                 <div className="px-3 py-1.5 border-b border-border/20 select-none">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Adjust View</span>
@@ -1961,19 +2109,20 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           </div>
 
           {/* Divider */}
-          <div className="w-px h-5 bg-border/30" />
+          <div className="w-px h-8 bg-border/30 self-center mx-1" />
 
           {/* Chat Button */}
           <Tooltip content="Chat Panel">
             <button
               onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'chat' ? null : 'chat')}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 activeRightPanelTab === 'chat' 
-                  ? 'bg-border text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-text'
+                  ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20' 
+                  : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
               }`}
             >
-              <IconMessage className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              <IconMessage className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
+              <span className="text-[11px] font-medium leading-none select-none">Chat</span>
             </button>
           </Tooltip>
 
@@ -1981,13 +2130,16 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           <Tooltip content={isTeacher ? "Student Doubts" : "Ask AI"}>
             <button
               onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'doubt' ? null : 'doubt')}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 activeRightPanelTab === 'doubt' 
-                  ? 'bg-border text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-text'
+                  ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20' 
+                  : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
               }`}
             >
-              <IconGalaxy className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              <IconGalaxy className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
+              <span className="text-[11px] font-medium leading-none select-none">
+                {isTeacher ? "Doubts" : "Ask AI"}
+              </span>
             </button>
           </Tooltip>
 
@@ -1995,27 +2147,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           <Tooltip content="Class Summary">
             <button
               onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'summary' ? null : 'summary')}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 activeRightPanelTab === 'summary' 
-                  ? 'bg-border text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-text'
+                  ? 'text-accent bg-accent/10 border-accent/30 font-semibold hover:bg-accent/20' 
+                  : 'text-text border-transparent bg-transparent hover:bg-surface-hi/50'
               }`}
             >
-              <IconFileTextSpark className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
-            </button>
-          </Tooltip>
-
-          {/* MoM Button */}
-          <Tooltip content="Meeting Minutes (MoM)">
-            <button
-              onClick={() => setShowMomOverlay(true)}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md relative ${
-                showMomOverlay 
-                  ? 'bg-border text-text' 
-                  : 'bg-surface-hi hover:bg-border/60 text-text'
-              }`}
-            >
-              <IconFileText className="w-5 h-5" strokeWidth={STROKE_WIDTH} />
+              <IconFileTextSpark className="w-6 h-6" strokeWidth={STROKE_WIDTH} />
+              <span className="text-[11px] font-medium leading-none select-none">Summary</span>
             </button>
           </Tooltip>
         </div>
@@ -2031,7 +2170,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                   onLeave();
                 }
               }}
-              className="w-11 h-11 bg-danger hover:bg-danger/80 text-white rounded-full flex items-center justify-center transition-colors cursor-pointer shadow-lg"
+              className="w-[48px] h-[48px] rounded-full border border-transparent flex items-center justify-center transition-all cursor-pointer text-white bg-danger hover:bg-danger/90 shadow-md"
             >
               <Phone className="w-5 h-5 transform rotate-[135deg]" strokeWidth={STROKE_WIDTH} />
             </button>
@@ -2095,15 +2234,6 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         </div>
       )}
 
-      {/* MoM Overlay Component */}
-      {showMomOverlay && (
-        <MomOverlay 
-          roomName={roomName}
-          messages={messages}
-          topicNotes={topicNotes}
-          onClose={() => setShowMomOverlay(false)} 
-        />
-      )}
 
     </div>
   );

@@ -10,7 +10,8 @@ import {
   IconRectangle, 
   IconChalkboard, 
   IconChalkboardOff, 
-  IconPhone 
+  IconPhone,
+  IconChevronUp
 } from '@tabler/icons-react';
 import Tooltip from './Tooltip';
 
@@ -80,6 +81,11 @@ export default function DesktopControls({
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const layoutMenuRef = useRef<HTMLDivElement>(null);
+
+  const [showMicMenu, setShowMicMenu] = useState(false);
+  const micMenuRef = useRef<HTMLDivElement>(null);
+  const [showCamMenu, setShowCamMenu] = useState(false);
+  const camMenuRef = useRef<HTMLDivElement>(null);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -151,13 +157,41 @@ export default function DesktopControls({
   }, [showDeviceSettings]);
 
   useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (micMenuRef.current && !micMenuRef.current.contains(event.target as Node)) {
+        setShowMicMenu(false);
+      }
+    }
+    if (showMicMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMicMenu]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (camMenuRef.current && !camMenuRef.current.contains(event.target as Node)) {
+        setShowCamMenu(false);
+      }
+    }
+    if (showCamMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCamMenu]);
+
+  useEffect(() => {
     if (!showDeviceSettings) {
       setShowDevices(false);
     }
   }, [showDeviceSettings]);
 
   return (
-    <div className="w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-4 flex items-center justify-between z-40 select-none transition-all duration-300 controls-bar relative translate-y-0 opacity-100">
+    <div className="w-full h-[72px] bg-[#090d1a]/95 border-t border-white/10 px-4 lg:px-6 py-1.5 flex items-center justify-between z-40 select-none transition-all duration-300 controls-bar relative translate-y-0 opacity-100">
       {/* Left side: Class details & time */}
       <div className="hidden md:flex flex-col min-w-[120px] lg:min-w-[200px]">
         <span className="font-bold text-sm text-white tracking-wider">OpenGrapes Live</span>
@@ -169,88 +203,229 @@ export default function DesktopControls({
       {/* Center side: Meeting controls */}
       <div className="flex items-center gap-1.5 md:gap-2 lg:gap-3">
         {/* Microphone Toggle */}
-        <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"}>
-          <button
-            onClick={toggleMicrophone}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-              isMicrophoneEnabled
-                ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-                : 'bg-red-600 hover:bg-red-500 text-white'
-            }`}
-          >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
+        <div className="relative" ref={micMenuRef}>
+          <div className={`relative w-[84px] h-[60px] rounded-xl border text-[#C2CCDE] transition-all duration-200 flex items-center p-0.5 ${
+            isMicrophoneEnabled ? 'border-white/10 bg-white/5' : 'border-transparent bg-transparent'
+          }`}>
+            {/* Mute/Unmute main toggle button */}
+            <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"} className="flex-1 h-full">
+              <button
+                onClick={toggleMicrophone}
+                className="w-full h-full flex flex-col items-center justify-center rounded-lg hover:bg-white/5 transition-colors cursor-pointer gap-0.5"
+              >
+                {isMicrophoneEnabled ? (
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M9.30001 6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M15 20.4H9.00001M12 16.5V20.4M12 16.5C9.34905 16.5 7.20001 14.351 7.20001 11.7V9.30001M12 16.5C14.651 16.5 16.8 14.351 16.8 11.7V9.30001M12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-6 h-6 text-red-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M9.30001 6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M15 20.4H9.00001M12 16.5V20.4M12 16.5C9.34905 16.5 7.20001 14.351 7.20001 11.7V9.30001M12 16.5C14.651 16.5 16.8 14.351 16.8 11.7V9.30001M12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                  </svg>
+                )}
+                <span className="text-[11px] font-medium leading-none select-none text-[#C2CCDE]">Audio</span>
+              </button>
+            </Tooltip>
+
+            {/* Chevron split button on the right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMicMenu(prev => !prev);
+              }}
+              className="w-5.5 h-full flex items-center justify-center rounded-lg hover:bg-white/10 text-[#C2CCDE]/50 hover:text-white transition-colors cursor-pointer"
             >
-              <path
-                d="M9.30001 6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M15 20.4H9.00001M12 16.5V20.4M12 16.5C9.34905 16.5 7.20001 14.351 7.20001 11.7V9.30001M12 16.5C14.651 16.5 16.8 14.351 16.8 11.7V9.30001M12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {!isMicrophoneEnabled && (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-              )}
-            </svg>
-          </button>
-        </Tooltip>
+              <IconChevronUp className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Audio selector menu */}
+          {showMicMenu && (
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+              <div className="px-3 py-1.5 border-b border-white/5 select-none text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/40">Select Microphone</span>
+              </div>
+              <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                {audioDevices.map((device) => (
+                  <button
+                    key={device.deviceId}
+                    onClick={() => {
+                      setActiveAudioDevice(device.deviceId);
+                      setShowMicMenu(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                      activeAudioId === device.deviceId ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
+                  >
+                    <span className="truncate">{device.label || `Microphone ${device.deviceId.slice(0, 5)}`}</span>
+                  </button>
+                ))}
+                {audioDevices.length === 0 && (
+                  <span className="px-3 py-2 text-xs text-[#C2CCDE]/40">No microphones found</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Camera Toggle */}
-        <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"}>
-          <button
-            onClick={toggleCamera}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-              isCameraEnabled
-                ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
-                : 'bg-red-600 hover:bg-red-500 text-white'
-            }`}
-          >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
+        <div className="relative" ref={camMenuRef}>
+          <div className={`relative w-[84px] h-[60px] rounded-xl border text-[#C2CCDE] transition-all duration-200 flex items-center p-0.5 ${
+            isCameraEnabled ? 'border-white/10 bg-white/5' : 'border-transparent bg-transparent'
+          }`}>
+            {/* Video Toggle main button */}
+            <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"} className="flex-1 h-full">
+              <button
+                onClick={toggleCamera}
+                className="w-full h-full flex flex-col items-center justify-center rounded-lg hover:bg-white/5 transition-colors cursor-pointer gap-0.5"
+              >
+                {isCameraEnabled ? (
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-6 h-6 text-red-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
+                      fill="currentColor"
+                      fillOpacity={0.25}
+                      stroke="none"
+                    />
+                    <path
+                      d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                  </svg>
+                )}
+                <span className="text-[11px] font-medium leading-none select-none text-[#C2CCDE]">Video</span>
+              </button>
+            </Tooltip>
+
+            {/* Chevron split button on the right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCamMenu(prev => !prev);
+              }}
+              className="w-5.5 h-full flex items-center justify-center rounded-lg hover:bg-white/10 text-[#C2CCDE]/50 hover:text-white transition-colors cursor-pointer"
             >
-              <path
-                d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {!isCameraEnabled && <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />}
-            </svg>
-          </button>
-        </Tooltip>
+              <IconChevronUp className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Camera selector menu */}
+          {showCamMenu && (
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+              <div className="px-3 py-1.5 border-b border-white/5 select-none text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/40">Select Camera</span>
+              </div>
+              <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
+                {videoDevices.map((device) => (
+                  <button
+                    key={device.deviceId}
+                    onClick={() => {
+                      setActiveVideoDevice(device.deviceId);
+                      setShowCamMenu(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left text-xs font-semibold select-none ${
+                      activeVideoId === device.deviceId ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
+                  >
+                    <span className="truncate">{device.label || `Camera ${device.deviceId.slice(0, 5)}`}</span>
+                  </button>
+                ))}
+                {videoDevices.length === 0 && (
+                  <span className="px-3 py-2 text-xs text-[#C2CCDE]/40">No cameras found</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Screen Share Toggle */}
-        <div className="hidden md:block">
+        <div className="hidden md:block relative">
           <Tooltip
             content={
               !isScreenShareAllowed
@@ -263,16 +438,16 @@ export default function DesktopControls({
             <button
               disabled={!isScreenShareAllowed}
               onClick={toggleScreenShare}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 !isScreenShareAllowed
-                  ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed opacity-40'
+                  ? 'opacity-45 cursor-not-allowed text-[#C2CCDE]/30 border-transparent bg-transparent'
                   : isScreenShareEnabled
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE] cursor-pointer'
+                  ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                  : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10 cursor-pointer'
               }`}
             >
               <svg
-                className="w-8 h-8"
+                className="w-6 h-6"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -302,17 +477,18 @@ export default function DesktopControls({
                   strokeLinejoin="round"
                 />
               </svg>
-              {!isScreenShareAllowed && (
-                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                  <IconLock className="w-3 h-3" />
-                </div>
-              )}
+              <span className="text-[11px] font-medium leading-none select-none">Share</span>
             </button>
           </Tooltip>
+          {!isScreenShareAllowed && (
+            <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-red-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
+              <IconLock className="w-2.5 h-2.5" />
+            </span>
+          )}
         </div>
 
         {/* Whiteboard Toggle */}
-        <div className="hidden md:block">
+        <div className="hidden md:block relative">
           <Tooltip
             content={
               showWhiteboard
@@ -326,24 +502,25 @@ export default function DesktopControls({
           >
             <button
               onClick={toggleWhiteboard}
-              className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg relative cursor-pointer ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 showWhiteboard
-                  ? 'bg-primary hover:bg-primary-hover text-white'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+                  ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                  : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10'
               }`}
             >
               {showWhiteboard ? (
-                <IconChalkboard className="w-8 h-8" />
+                <IconChalkboard className="w-6 h-6" />
               ) : (
-                <IconChalkboardOff className="w-8 h-8" />
+                <IconChalkboardOff className="w-6 h-6" />
               )}
-              {!isWhiteboardAllowed && (
-                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
-                  <IconLock className="w-3 h-3" />
-                </div>
-              )}
+              <span className="text-[11px] font-medium leading-none select-none tracking-tight">Whiteboard</span>
             </button>
           </Tooltip>
+          {!isWhiteboardAllowed && (
+            <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#d97706] rounded-full flex items-center justify-center text-white border border-[#090d1a] shadow-md z-10">
+              <IconLock className="w-2.5 h-2.5" />
+            </span>
+          )}
         </div>
 
         {/* Adjust View Toggle Button */}
@@ -351,19 +528,20 @@ export default function DesktopControls({
           <Tooltip content="Adjust view">
             <button
               onClick={() => setShowLayoutMenu(!showLayoutMenu)}
-              className={`relative group w-10 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 showLayoutMenu
-                  ? 'bg-primary text-white hover:bg-primary-hover'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#ffffff]'
+                  ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                  : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10'
               }`}
             >
-              <IconLayoutDashboard className="w-5.5 h-5.5" />
+              <IconLayoutDashboard className="w-6 h-6" />
+              <span className="text-[11px] font-medium leading-none select-none">View</span>
             </button>
           </Tooltip>
 
           {/* Adjust View Dropdown Menu */}
           {showLayoutMenu && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-2 border-b border-white/5 select-none text-left">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
               </div>
@@ -403,26 +581,6 @@ export default function DesktopControls({
                   </div>
                 </div>
               </button>
-
-              {/* Spotlight view is commented out
-              <button
-                onClick={() => {
-                  setLayoutMode('spotlight');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'spotlight' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Spotlight</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Focus on featured tile</span>
-                  </div>
-                </div>
-              </button>
-              */}
 
               <button
                 onClick={() => {
@@ -480,14 +638,14 @@ export default function DesktopControls({
           <Tooltip content="Settings / Devices">
             <button
               onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-              className={`w-10 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
+              className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
                 showDeviceSettings
-                  ? 'bg-primary text-white hover:bg-primary-hover'
-                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+                  ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                  : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10'
               }`}
             >
               <svg
-                className="w-5.5 h-5.5"
+                className="w-6 h-6"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -502,19 +660,20 @@ export default function DesktopControls({
                   strokeLinejoin="round"
                 />
                 <path
-                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
                   stroke="currentColor"
                   strokeWidth={1.5}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
+              <span className="text-[11px] font-medium leading-none select-none">Settings</span>
             </button>
           </Tooltip>
 
           {/* Devices Settings Menu */}
           {showDeviceSettings && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3.5 py-2 border-b border-white/5 flex items-center justify-between select-none">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Settings</span>
                 {isTeacher && (
@@ -593,9 +752,9 @@ export default function DesktopControls({
         <Tooltip content={isTeacher ? 'End class session' : 'Leave classroom'}>
           <button
             onClick={onLeave}
-            className="w-16 h-12 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center text-white transition-colors duration-200 cursor-pointer shadow-lg"
+            className="w-[60px] h-[60px] rounded-full border border-transparent flex items-center justify-center transition-all cursor-pointer text-white bg-red-600 hover:bg-red-500 shadow-md"
           >
-            <IconPhone className="w-7 h-7" />
+            <IconPhone className="w-6.5 h-6.5 transform rotate-[135deg]" />
           </button>
         </Tooltip>
       </div>
@@ -606,14 +765,14 @@ export default function DesktopControls({
         <Tooltip content={activeRightPanelTab === 'chat' ? 'Hide Chat' : 'Show Chat'} align="right">
           <button
             onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'chat' ? null : 'chat')}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+            className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
               activeRightPanelTab === 'chat'
-                ? 'bg-primary text-white shadow-lg'
-                : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+                ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10'
             }`}
           >
             <svg
-              className="w-8 h-8"
+              className="w-6 h-6"
               viewBox="0 0 85 77"
               fill="none"
               stroke="currentColor"
@@ -651,6 +810,7 @@ export default function DesktopControls({
                 strokeLinejoin="round"
               />
             </svg>
+            <span className="text-[11px] font-medium leading-none select-none">Chat</span>
           </button>
         </Tooltip>
 
@@ -663,14 +823,14 @@ export default function DesktopControls({
             onClick={() =>
               setActiveRightPanelTab(activeRightPanelTab === 'participants' ? null : 'participants')
             }
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+            className={`w-[72px] h-[60px] rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200 cursor-pointer ${
               activeRightPanelTab === 'participants'
-                ? 'bg-primary text-white shadow-lg'
-                : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+                ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30 font-semibold'
+                : 'text-[#C2CCDE] border-transparent bg-transparent hover:bg-white/10'
             }`}
           >
             <svg
-              className="w-8 h-8"
+              className="w-6 h-6"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -726,6 +886,7 @@ export default function DesktopControls({
                 strokeLinejoin="round"
               />
             </svg>
+            <span className="text-[11px] font-medium leading-none mt-1 select-none">Participants</span>
           </button>
         </Tooltip>
       </div>
