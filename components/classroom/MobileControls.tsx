@@ -9,7 +9,17 @@ import {
   IconRectangle, 
   IconChalkboard, 
   IconChalkboardOff, 
-  IconPhone 
+  IconPhone,
+  IconMessage,
+  IconGalaxy,
+  IconDots,
+  IconLock,
+  IconChevronUp,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconVideo,
+  IconVideoOff,
+  IconUsers
 } from '@tabler/icons-react';
 import Tooltip from './Tooltip';
 
@@ -82,22 +92,6 @@ export default function MobileControls({
   const [showDevices, setShowDevices] = useState(false);
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const layoutMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close layout menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (layoutMenuRef.current && !layoutMenuRef.current.contains(event.target as Node)) {
-        setShowLayoutMenu(false);
-      }
-    }
-    if (showLayoutMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showLayoutMenu]);
 
   // Close device settings when clicking outside
   useEffect(() => {
@@ -114,10 +108,11 @@ export default function MobileControls({
     };
   }, [showDeviceSettings]);
 
-  // Reset device list submenu when settings main menu closes
+  // Reset collapsible submenus when settings main menu closes
   useEffect(() => {
     if (!showDeviceSettings) {
       setShowDevices(false);
+      setShowLayoutMenu(false);
     }
   }, [showDeviceSettings]);
 
@@ -137,463 +132,346 @@ export default function MobileControls({
         }
         onHideControls();
       }}
-      className={`w-full h-20 bg-[#090d1a]/95 border-t border-white/10 px-4 py-4 flex items-center justify-center z-40 select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
+      className={`w-full h-16 bg-[#090d1a]/95 border-t border-white/10 px-4 py-2 flex items-center justify-center z-40 select-none transition-all duration-300 controls-bar fixed bottom-0 left-0 right-0 ${
         mobileControlsVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
       }`}
     >
       {/* Center side: Meeting controls */}
-      <div className="flex items-center gap-1.5">
-        {/* Microphone Toggle */}
-        <Tooltip content={isMicrophoneEnabled ? "Mute Microphone" : "Unmute Microphone"}>
-          <button
-            onClick={toggleMicrophone}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-              isMicrophoneEnabled
-                ? "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]"
-                : "bg-red-600 hover:bg-red-500 text-white"
-            }`}
-          >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M9.30001 6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M15 20.4H9.00001M12 16.5V20.4M12 16.5C9.34905 16.5 7.20001 14.351 7.20001 11.7V9.30001M12 16.5C14.651 16.5 16.8 14.351 16.8 11.7V9.30001M12 14.4C10.5088 14.4 9.30001 13.1912 9.30001 11.7V6.30001C9.30001 4.80884 10.5088 3.60001 12 3.60001C13.4912 3.60001 14.7 4.80884 14.7 6.30001V11.7C14.7 13.1912 13.4912 14.4 12 14.4Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {!isMicrophoneEnabled && (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 3l18 18"
-                />
-              )}
-            </svg>
-          </button>
-        </Tooltip>
+      <div className="flex items-center gap-2.5 justify-center w-full max-w-lg">
+        
+        {/* 1. Microphone Toggle */}
+        <button
+          onClick={toggleMicrophone}
+          className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+            isMicrophoneEnabled
+              ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+              : 'bg-red-600 hover:bg-red-500 text-white'
+          }`}
+        >
+          {isMicrophoneEnabled ? (
+            <IconMicrophone className="w-5.5 h-5.5" strokeWidth={1.8} />
+          ) : (
+            <IconMicrophoneOff className="w-5.5 h-5.5" strokeWidth={1.8} />
+          )}
+        </button>
 
-        {/* Camera Toggle */}
-        <Tooltip content={isCameraEnabled ? "Turn Off Camera" : "Turn On Camera"}>
-          <button
-            onClick={toggleCamera}
-            className={`w-15 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-              isCameraEnabled
-                ? "bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]"
-                : "bg-red-600 hover:bg-red-500 text-white"
-            }`}
-          >
-            <svg
-              className="w-8 h-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
-                fill="currentColor"
-                fillOpacity={0.25}
-                stroke="none"
-              />
-              <path
-                d="M2.39999 7.2C2.39999 6.53726 2.93725 6 3.59999 6H15C15.6627 6 16.2 6.53726 16.2 7.2V16.8C16.2 17.4627 15.6627 18 15 18H3.59999C2.93725 18 2.39999 17.4627 2.39999 16.8V7.2Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M16.2 14.5737L20.762 16.5446C21.1581 16.7157 21.6 16.4253 21.6 15.9938V8.21945C21.6 7.78795 21.1581 7.49752 20.762 7.66866L16.2 9.6396V14.5737Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {!isCameraEnabled && (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 3l18 18"
-                />
-              )}
-            </svg>
-          </button>
-        </Tooltip>
+        {/* 2. Camera Toggle */}
+        <button
+          onClick={toggleCamera}
+          className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+            isCameraEnabled
+              ? 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+              : 'bg-red-600 hover:bg-red-500 text-white'
+          }`}
+        >
+          {isCameraEnabled ? (
+            <IconVideo className="w-5.5 h-5.5" strokeWidth={1.8} />
+          ) : (
+            <IconVideoOff className="w-5.5 h-5.5" strokeWidth={1.8} />
+          )}
+        </button>
 
-        {/* Adjust View Toggle Button */}
-        <div ref={layoutMenuRef} className="relative">
-          <Tooltip content="Adjust view">
+        {/* 3 & 4. Primary View/Utility Toggles based on Teacher vs Student */}
+        {!isTeacher ? (
+          <>
+            {/* Student Utility: Chat */}
             <button
-              onClick={() => setShowLayoutMenu(!showLayoutMenu)}
-              className={`relative group w-10 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                showLayoutMenu
-                  ? "bg-primary text-white hover:bg-primary-hover"
-                  : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#ffffff]"
+              onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'chat' ? null : 'chat')}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+                activeRightPanelTab === 'chat'
+                  ? 'bg-primary text-white'
+                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
               }`}
             >
-              <IconLayoutDashboard className="w-5.5 h-5.5" />
+              <IconMessage className="w-5.5 h-5.5" strokeWidth={1.8} />
             </button>
-          </Tooltip>
 
-          {/* Adjust View Dropdown Menu */}
-          {showLayoutMenu && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
-              <div className="px-3 py-2 border-b border-white/5 select-none text-left">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
-              </div>
-
-              <button
-                onClick={() => {
-                  setLayoutMode('auto');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'auto' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconTableSpark className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Auto (dynamic)</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Adapts to active content</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setLayoutMode('tiled');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'tiled' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconLayoutGrid className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Tiled</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">All participants in grid</span>
-                  </div>
-                </div>
-              </button>
-
-              {/* Spotlight view is commented out
-              <button
-                onClick={() => {
-                  setLayoutMode('spotlight');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'spotlight' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Maximize2 className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Spotlight</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Focus on featured tile</span>
-                  </div>
-                </div>
-              </button>
-              */}
-
-              <button
-                onClick={() => {
-                  setLayoutMode('sidebar');
-                  setShowLayoutMenu(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                  layoutMode === 'sidebar' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <IconLayoutSidebarRight className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Sidebar</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Featured center with side list</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                disabled={!showSplitLayout}
-                onClick={() => {
-                  if (showSplitLayout) {
-                    setLayoutMode('focus');
-                    setShowLayoutMenu(false);
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition-colors text-left text-sm font-semibold select-none ${
-                  !showSplitLayout
-                    ? 'opacity-40 cursor-not-allowed text-[#C2CCDE]/50'
-                    : layoutMode === 'focus'
-                    ? 'text-indigo-400 bg-indigo-500/10 cursor-pointer'
-                    : 'text-[#C2CCDE] cursor-pointer'
-                }`}
-                title={!showSplitLayout ? "Focus View (Only available during presentations)" : ""}
-              >
-                <div className="flex items-center gap-3">
-                  <IconRectangle className="w-4 h-4" />
-                  <div className="flex flex-col">
-                    <span>Focus View</span>
-                    <span className="text-[10px] text-[#C2CCDE]/50 font-normal">Whiteboard/screen share only</span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Settings Toggle Button (Ellipsis icon) */}
-        <div ref={menuRef} className="relative">
-          <Tooltip content="Settings">
+            {/* Student Utility: Ask AI */}
             <button
-              onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-              className={`relative group w-10 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
-                showDeviceSettings
-                  ? "bg-primary text-white hover:bg-primary-hover"
-                  : "bg-[#2d3139] hover:bg-[#3b3e45] text-[#ffffff]"
+              onClick={() => setActiveRightPanelTab(activeRightPanelTab === 'doubt' ? null : 'doubt')}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+                activeRightPanelTab === 'doubt'
+                  ? 'bg-primary text-white'
+                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+              }`}
+            >
+              <IconGalaxy className="w-5.5 h-5.5" strokeWidth={1.8} />
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Teacher Utility: Whiteboard */}
+            <button
+              onClick={toggleWhiteboard}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+                showWhiteboard
+                  ? 'bg-primary text-white'
+                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
+              }`}
+            >
+              {showWhiteboard ? (
+                <IconChalkboard className="w-5.5 h-5.5" strokeWidth={1.8} />
+              ) : (
+                <IconChalkboardOff className="w-5.5 h-5.5" strokeWidth={1.8} />
+              )}
+            </button>
+
+            {/* Teacher Utility: Screenshare */}
+            <button
+              disabled={!isScreenShareAllowed}
+              onClick={toggleScreenShare}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0 ${
+                !isScreenShareAllowed
+                  ? 'opacity-40 cursor-not-allowed bg-transparent text-[#C2CCDE]/35 border border-white/5 shadow-none'
+                  : isScreenShareEnabled
+                  ? 'bg-primary text-white'
+                  : 'bg-[#2d3139] hover:bg-[#3b3e45] text-[#C2CCDE]'
               }`}
             >
               <svg
-                className="w-8 h-8"
-                viewBox="0 0 80 80"
+                className="w-5.5 h-5.5"
+                viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth={1}
+                strokeWidth={1.8}
                 xmlns="http://www.w3.org/2000/svg"
               >
                 <path
-                  d="M36 22C36 20.8954 36.8954 20 38 20H42C43.1046 20 44 20.8954 44 22V26C44 27.1046 43.1046 28 42 28H38C36.8954 28 36 27.1046 36 26V22Z"
+                  d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
                   fill="currentColor"
-                  fillOpacity={0.25}
-                  stroke="currentColor"
+                  fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
+                  stroke="none"
+                />
+                <path
+                  d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.9224 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <path
-                  d="M36 38C36 36.8954 36.8954 36 38 36H42C43.1046 36 44 36.8954 44 38V42C44 43.1046 43.1046 44 42 44H38C36.8954 44 36 43.1046 36 42V38Z"
-                  fill="currentColor"
-                  fillOpacity={0.25}
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M36 54C36 52.8954 36.8954 52 38 52H42C43.1046 52 44 52.8954 44 54V58C44 59.1046 43.1046 60 42 60H38C36.8954 60 36 59.1046 36 58V54Z"
-                  fill="currentColor"
-                  fillOpacity={0.25}
-                  stroke="currentColor"
+                  d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
               </svg>
             </button>
-          </Tooltip>
+          </>
+        )}
 
-          {/* Dropdown Settings Menu */}
+        {/* 5. Ellipses Toggle (More Options Settings Dropdown Menu) */}
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg ${
+              showDeviceSettings
+                ? 'bg-primary text-white'
+                : 'bg-[#2d3139] hover:bg-[#3b3e45] text-white'
+            }`}
+          >
+            <IconDots className="w-5.5 h-5.5" strokeWidth={1.8} />
+          </button>
+
+          {/* Collapsible Dropdown Settings Menu */}
           {showDeviceSettings && (
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-              {/* Mobile-only: Screen Share, Whiteboard, Chat, and Participants options */}
-              <div className="flex flex-col gap-1 border-b border-white/5 pb-1 mb-1">
-                {/* Screen Share */}
-                <button
-                  disabled={!isScreenShareAllowed}
-                  onClick={() => {
-                    toggleScreenShare();
-                    setShowDeviceSettings(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors text-left text-sm font-semibold select-none ${
-                    !isScreenShareAllowed
-                      ? "opacity-40 cursor-not-allowed text-zinc-600"
-                      : isScreenShareEnabled
-                      ? "text-emerald-400 bg-emerald-500/10 cursor-pointer"
-                      : "text-[#C2CCDE] cursor-pointer"
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    xmlns="http://www.w3.org/2000/svg"
+            <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 animate-out fade-out duration-150">
+              
+              {/* Conditional Items inside Ellipses menu for Students */}
+              {!isTeacher && (
+                <div className="flex flex-col gap-1 border-b border-white/5 pb-1">
+                  {/* Student Ellipses Whiteboard Option */}
+                  <button
+                    onClick={() => {
+                      toggleWhiteboard();
+                      setShowDeviceSettings(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                      showWhiteboard ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
                   >
-                    <path
-                      d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
-                      fill="currentColor"
-                      fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
-                      stroke="none"
-                    />
-                    <path
-                      d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z"
-                      fill="currentColor"
-                      fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
-                      stroke="none"
-                    />
-                    <path
-                      d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.8972 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>Share Screen</span>
+                    {showWhiteboard ? (
+                      <IconChalkboard className="w-5 h-5" />
+                    ) : (
+                      <IconChalkboardOff className="w-5 h-5" />
+                    )}
+                    <span>Whiteboard</span>
+                  </button>
+
+                  {/* Student Ellipses Screenshare Option */}
+                  <button
+                    disabled={!isScreenShareAllowed}
+                    onClick={() => {
+                      toggleScreenShare();
+                      setShowDeviceSettings(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left text-sm font-semibold select-none ${
+                      !isScreenShareAllowed
+                        ? 'opacity-40 cursor-not-allowed text-[#C2CCDE]/30'
+                        : isScreenShareEnabled
+                        ? 'text-indigo-400 bg-indigo-500/10 cursor-pointer'
+                        : 'text-[#C2CCDE] cursor-pointer'
+                    }`}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M4.80001 4.87677C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782C9.77103 17.3943 10.2409 17.7768 10.8 17.7768H13.2C13.7592 17.7768 14.229 17.3943 14.3622 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001Z"
+                        fill="currentColor"
+                        fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
+                        stroke="none"
+                      />
+                      <path
+                        d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.9224 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768Z"
+                        fill="currentColor"
+                        fillOpacity={isScreenShareEnabled ? 0.4 : 0.25}
+                        stroke="none"
+                      />
+                      <path
+                        d="M9.63782 16.8768H1.24566C1.22045 16.8768 1.20001 16.9224 1.20001 16.9224C1.20001 18.2227 2.25409 19.2768 3.55437 19.2768H20.4457C21.7459 19.2768 22.8 18.2227 22.8 16.9224C22.8 16.8972 22.7796 16.8768 22.7544 16.8768H14.3622C14.229 17.3943 13.7592 17.7768 13.2 17.7768H10.8C10.2409 17.7768 9.77103 17.3943 9.63782 16.8768H20.4V6.07677C20.4 5.41403 19.8628 4.87677 19.2 4.87677H4.80001C4.13727 4.87677 3.60001 5.41403 3.60001 6.07677V16.8768H9.63782"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M12 7.38614V9.5968M12 9.6V13.05M9.60001 9.6L11.6818 7.5182C11.8575 7.34247 12.1425 7.34247 12.3182 7.5182L14.4 9.6M9.60001 14.25H14.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span>Share Screen</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Conditional Items inside Ellipses menu for Teachers */}
+              {isTeacher && (
+                <div className="flex flex-col gap-1 border-b border-white/5 pb-1">
+                  {/* Teacher Ellipses Chat Option */}
+                  <button
+                    onClick={() => {
+                      setActiveRightPanelTab(activeRightPanelTab === 'chat' ? null : 'chat');
+                      setShowDeviceSettings(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                      activeRightPanelTab === 'chat' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
+                  >
+                    <IconMessage className="w-5 h-5" />
+                    <span>Chat</span>
+                  </button>
+
+                  {/* Teacher Ellipses Doubt Solver Option */}
+                  <button
+                    onClick={() => {
+                      setActiveRightPanelTab(activeRightPanelTab === 'doubt' ? null : 'doubt');
+                      setShowDeviceSettings(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                      activeRightPanelTab === 'doubt' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
+                  >
+                    <IconGalaxy className="w-5 h-5" />
+                    <span>Doubts</span>
+                  </button>
+
+                  {/* Teacher Ellipses Participants Option */}
+                  <button
+                    onClick={() => {
+                      setActiveRightPanelTab(activeRightPanelTab === 'participants' ? null : 'participants');
+                      setShowDeviceSettings(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
+                      activeRightPanelTab === 'participants' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                    }`}
+                  >
+                    <IconUsers className="w-5 h-5" />
+                    <span>Participants</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Adjust View Dropdown Collapsible Trigger */}
+              <div className="flex flex-col">
+                <button
+                  onClick={() => setShowLayoutMenu(!showLayoutMenu)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE]"
+                >
+                  <div className="flex items-center gap-3">
+                    <IconLayoutDashboard className="w-5 h-5" />
+                    <span>Adjust View</span>
+                  </div>
+                  <IconChevronUp className={`w-4 h-4 transition-transform duration-200 ${showLayoutMenu ? '' : 'rotate-180'}`} />
                 </button>
 
-                {/* Whiteboard */}
-                <button
-                  onClick={() => {
-                    toggleWhiteboard();
-                    setShowDeviceSettings(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                    showWhiteboard ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                  }`}
-                >
-                  {showWhiteboard ? (
-                    <IconChalkboard className="w-5 h-5" />
-                  ) : (
-                    <IconChalkboardOff className="w-5 h-5" />
-                  )}
-                  <span>Whiteboard</span>
-                </button>
-
-                {/* Chat */}
-                <button
-                  onClick={() => {
-                    setActiveRightPanelTab(
-                      activeRightPanelTab === 'chat' ? null : 'chat'
-                    );
-                    setShowDeviceSettings(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                    activeRightPanelTab === 'chat' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 85 77"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M24 21L56 21"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M24 43H56"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M31 32H63"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M26.5625 11.55C18.9341 11.55 12.75 17.152 12.75 24.0625V41.3875C12.75 47.9741 18.368 53.372 25.5 53.8635V65.45L42.5 53.9H58.4375C66.0659 53.9 72.25 48.2979 72.25 41.3875V24.0625C72.25 17.152 66.0659 11.55 58.4375 11.55H26.5625Z"
-                      fill="currentColor"
-                      fillOpacity={activeRightPanelTab === 'chat' ? 0.4 : 0.25}
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>Chat</span>
-                </button>
-
-                {/* Participants */}
-                <button
-                  onClick={() => {
-                    setActiveRightPanelTab(
-                      activeRightPanelTab === 'participants' ? null : 'participants'
-                    );
-                    setShowDeviceSettings(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none ${
-                    activeRightPanelTab === 'participants' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M7.49006 11.7919C7.37766 12.3267 7.03202 12.7833 6.54775 13.0366C6.01672 13.3143 5.38333 13.3143 4.8523 13.0366C4.36803 12.7833 4.02239 12.3267 3.90999 11.7919L3.87102 11.6065C3.75534 11.0561 3.87948 10.4824 4.21238 10.029L4.27549 9.94309C4.60846 9.48962 5.13744 9.22178 5.70002 9.22178C6.26261 9.22178 6.79158 9.48962 7.12456 9.94309L7.18767 10.029C7.52057 10.4824 7.64471 11.0561 7.52903 11.6065L7.49006 11.7919Z"
-                      fill="currentColor"
-                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M2.40002 16.8399C2.40002 17.1492 2.65075 17.3999 2.96003 17.3999H6.39322C6.61397 16.4192 7.21453 15.5619 8.06255 15.0195C7.90992 14.9106 7.74197 14.8199 7.56123 14.7509L7.43468 14.7026C6.31753 14.2763 5.08252 14.2763 3.96537 14.7026L3.83882 14.7509C2.97243 15.0815 2.40002 15.9126 2.40002 16.8399Z"
-                      fill="currentColor"
-                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M21.04 17.4H17.6068C17.3861 16.4193 16.7856 15.5619 15.9375 15.0195C16.0902 14.9107 16.2581 14.8199 16.4388 14.7509L16.5654 14.7027C17.6825 14.2763 18.9175 14.2763 20.0347 14.7027L20.1612 14.7509C21.0276 15.0816 21.6 15.9127 21.6 16.84C21.6 17.1493 21.3493 17.4 21.04 17.4Z"
-                      fill="currentColor"
-                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M16.51 11.792C16.6224 12.3268 16.968 12.7834 17.4523 13.0366C17.9833 13.3144 18.6167 13.3144 19.1478 13.0366C19.632 12.7834 19.9777 12.3268 20.0901 11.792L20.129 11.6066C20.2447 11.0561 20.1206 10.4825 19.7877 10.0291L19.7246 9.94316C19.3916 9.48969 18.8626 9.22184 18.3 9.22184C17.7374 9.22184 17.2085 9.48969 16.8755 9.94316L16.8124 10.0291C16.4795 10.4825 16.3553 11.0561 16.4795 11.6066L16.51 11.792Z"
-                      fill="currentColor"
-                      fillOpacity={activeRightPanelTab === "participants" ? 0.4 : 0.25}
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>Participants</span>
-                </button>
+                {showLayoutMenu && (
+                  <div className="mx-2 mb-2 p-1.5 grid grid-cols-2 gap-1 border-t border-white/5 pt-1.5 bg-black/20 rounded-xl">
+                    <button
+                      onClick={() => {
+                        setLayoutMode('auto');
+                        setShowDeviceSettings(false);
+                      }}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-center text-xs font-semibold select-none ${
+                        layoutMode === 'auto' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                      }`}
+                    >
+                      <IconTableSpark className="w-4 h-4" />
+                      <span>Auto</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLayoutMode('tiled');
+                        setShowDeviceSettings(false);
+                      }}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-center text-xs font-semibold select-none ${
+                        layoutMode === 'tiled' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                      }`}
+                    >
+                      <IconLayoutGrid className="w-4 h-4" />
+                      <span>Tiled</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLayoutMode('sidebar');
+                        setShowDeviceSettings(false);
+                      }}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-center text-xs font-semibold select-none ${
+                        layoutMode === 'sidebar' ? 'text-indigo-400 bg-indigo-500/10' : 'text-[#C2CCDE]'
+                      }`}
+                    >
+                      <IconLayoutSidebarRight className="w-4 h-4" />
+                      <span>Sidebar</span>
+                    </button>
+                    <button
+                      disabled={!showSplitLayout}
+                      onClick={() => {
+                        if (showSplitLayout) {
+                          setLayoutMode('focus');
+                          setShowDeviceSettings(false);
+                        }
+                      }}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors text-center text-xs font-semibold select-none ${
+                        !showSplitLayout
+                          ? 'opacity-40 cursor-not-allowed text-[#C2CCDE]/30'
+                          : layoutMode === 'focus'
+                          ? 'text-indigo-400 bg-indigo-500/10 cursor-pointer'
+                          : 'text-[#C2CCDE] cursor-pointer'
+                      }`}
+                    >
+                      <IconRectangle className="w-4 h-4" />
+                      <span>Focus</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Device Settings Submenu Trigger */}
-              <div className="flex flex-col text-left">
+              {/* Device Settings Submenu Collapsible Trigger */}
+              <div className="flex flex-col">
                 <button
                   onClick={() => setShowDevices(!showDevices)}
-                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE]"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE]"
                 >
                   <div className="flex items-center gap-3">
                     <svg
@@ -617,106 +495,56 @@ export default function MobileControls({
                     </svg>
                     <span>Device Settings</span>
                   </div>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${showDevices ? "rotate-180" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronUp className={`w-4 h-4 transition-transform duration-200 ${showDevices ? '' : 'rotate-180'}`} />
                 </button>
 
                 {showDevices && (
-                  <div className="mx-2 mb-2 p-3.5 flex flex-col gap-3.5 border-t border-white/5 pt-3 bg-black/20 rounded-xl">
+                  <div className="mx-2 mb-2 p-3 flex flex-col gap-3 border-t border-white/5 pt-3 bg-black/20 rounded-xl">
                     {/* Microphone selector */}
-                    <div className="flex flex-col gap-1.5 border-b border-white/5 pb-3">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-[#C2CCDE]/50 flex items-center gap-1.5 select-none font-sans text-left">
+                    <div className="flex flex-col gap-1 border-b border-white/5 pb-2">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/50 select-none text-left">
                         Microphone
                       </label>
                       <div className="relative">
                         <select
                           value={activeAudioId}
                           onChange={(e) => setActiveAudioDevice(e.target.value)}
-                          className="w-full bg-[#161a26] border border-white/10 hover:border-white/20 text-white rounded-lg px-3 py-2.5 text-sm outline-none cursor-pointer focus:border-primary/50 transition-colors appearance-none pr-8 font-sans"
+                          className="w-full bg-[#161a26] border border-white/10 hover:border-white/20 text-white rounded-lg px-2.5 py-1.5 text-xs outline-none cursor-pointer focus:border-primary/50 transition-colors appearance-none pr-8 font-sans font-semibold"
                         >
                           {audioDevices.length === 0 ? (
-                            <option value="">No microphones found</option>
+                            <option value="">No microphones</option>
                           ) : (
                             audioDevices.map((device) => (
-                              <option
-                                key={device.deviceId}
-                                value={device.deviceId}
-                              >
-                                {device.label ||
-                                  `Microphone ${device.deviceId.slice(0, 5)}`}
+                              <option key={device.deviceId} value={device.deviceId}>
+                                {device.label || `Mic ${device.deviceId.slice(0, 5)}`}
                               </option>
                             ))
                           )}
                         </select>
-                        <div className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none text-[#C2CCDE]/50">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
                       </div>
                     </div>
 
                     {/* Camera selector */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-[#C2CCDE]/50 flex items-center gap-1.5 select-none font-sans text-left">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/50 select-none text-left">
                         Camera
                       </label>
                       <div className="relative">
                         <select
                           value={activeVideoId}
                           onChange={(e) => setActiveVideoDevice(e.target.value)}
-                          className="w-full bg-[#161a26] border border-white/10 hover:border-white/20 text-white rounded-lg px-3 py-2.5 text-sm outline-none cursor-pointer focus:border-primary/50 transition-colors appearance-none pr-8 font-sans"
+                          className="w-full bg-[#161a26] border border-white/10 hover:border-white/20 text-white rounded-lg px-2.5 py-1.5 text-xs outline-none cursor-pointer focus:border-primary/50 transition-colors appearance-none pr-8 font-sans font-semibold"
                         >
                           {videoDevices.length === 0 ? (
-                            <option value="">No cameras found</option>
+                            <option value="">No cameras</option>
                           ) : (
                             videoDevices.map((device) => (
-                              <option
-                                key={device.deviceId}
-                                value={device.deviceId}
-                              >
-                                {device.label ||
-                                  `Camera ${device.deviceId.slice(0, 5)}`}
+                              <option key={device.deviceId} value={device.deviceId}>
+                                {device.label || `Cam ${device.deviceId.slice(0, 5)}`}
                               </option>
                             ))
                           )}
                         </select>
-                        <div className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none text-[#C2CCDE]/50">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -725,107 +553,49 @@ export default function MobileControls({
 
               {/* Publish Notes / Download Notes (Teacher) */}
               {isTeacher && (
-                <button
-                  onClick={handleEndClass}
-                  disabled={isExporting}
-                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE] disabled:opacity-40 disabled:cursor-not-allowed font-sans"
-                >
-                  {isExporting ? (
-                    <>
-                      <svg
-                        className="w-5 h-5 animate-spin text-[#C2CCDE]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth={4}
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                      <span>Publishing...</span>
-                    </>
+                <div className="flex flex-col gap-1 border-t border-white/5 pt-1.5 mt-1.5">
+                  {exportedPdfUrl ? (
+                    <a
+                      href={exportedPdfUrl}
+                      download={`${roomName}_notes.pdf`}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg transition-colors cursor-pointer text-center font-sans"
+                    >
+                      Download Board PDF
+                    </a>
                   ) : (
-                    <>
-                      <svg
-                        className="w-5 h-5 text-[#C2CCDE]"
-                        viewBox="0 0 80 80"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M19 16C19 13.7909 20.7909 12 23 12H59C61.2091 12 63 13.7909 63 16V64C63 66.2091 61.2091 68 59 68H23C20.7909 68 19 66.2091 19 64V16Z"
-                          fill="currentColor"
-                          fillOpacity={0.25}
-                          stroke="none"
-                        />
-                        <path
-                          d="M29 24H53M29 32H45M29 40H53M29 48H45M29 56H53M21 28H17M21 20H17M21 36H17M21 52H17M21 60H17M21 44H17M23 68H59C61.2091 68 63 66.2091 63 64V16C63 13.7909 61.2091 12 59 12H23C20.7909 12 19 13.7909 19 16V64C19 66.2091 20.7909 68 23 68Z"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <span>Publish Notes</span>
-                    </>
+                    <button
+                      onClick={() => {
+                        handleEndClass();
+                        setShowDeviceSettings(false);
+                      }}
+                      disabled={isExporting}
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+                    >
+                      {isExporting ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Publishing Notes...</span>
+                        </>
+                      ) : (
+                        <span>Publish Notes</span>
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
               )}
 
-              {exportedPdfUrl && (
-                <button
-                  onClick={() => {
-                    window.open(exportedPdfUrl, "_blank");
-                  }}
-                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left text-sm font-semibold select-none text-[#C2CCDE] font-sans"
-                >
-                  <svg
-                    className="w-5 h-5 text-[#C2CCDE] rotate-180"
-                    viewBox="0 0 80 80"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M48 44H56.4013C59.5401 44 61.0823 40.1787 58.8229 38L43.8005 23.5141C41.7667 21.553 38.5458 21.553 36.512 23.5141L21.4896 38C19.2302 40.1787 20.7724 44 23.9112 44H32L32 62C32 63.1046 32.8954 64 34 64H46C47.1046 64 48 63.1046 48 62V44Z"
-                      fill="currentColor"
-                      fillOpacity={0.25}
-                      stroke="none"
-                    />
-                    <path
-                      d="M16 30L16 16C16 13.7909 17.7909 12 20 12L60 12C62.2091 12 64 13.7909 64 16V30M56.4013 44H48V62C48 63.1046 47.1046 64 46 64H34C32.8954 64 32 63.1046 32 62L32 44H23.9112C20.7724 44 19.2302 40.1787 21.4896 38L36.512 23.5141C38.5458 21.553 41.7667 21.553 43.8005 23.5141L58.8229 38C61.0823 40.1787 59.5401 44 56.4013 44Z"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>Download Notes</span>
-                </button>
-              )}
             </div>
           )}
         </div>
 
-        {/* Leave Room Button */}
-        <Tooltip content="Leave Room">
-          <button
-            onClick={onLeave}
-            className="relative group w-15 h-12 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg"
-          >
-            <IconPhone className="w-8 h-8" />
-          </button>
-        </Tooltip>
+        {/* 6. End Call Button (rotated phone icon) */}
+        <button
+          onClick={onLeave}
+          className="w-11 h-11 rounded-full bg-red-600 hover:bg-red-500 active:scale-95 text-white flex items-center justify-center transition-all duration-200 cursor-pointer shadow-lg shrink-0"
+        >
+          <IconPhone className="w-5.5 h-5.5 transform rotate-[135deg]" strokeWidth={1.8} />
+        </button>
+
       </div>
     </div>
   );

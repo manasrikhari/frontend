@@ -31,6 +31,7 @@ interface LeftRailProps {
   editor: any;
   showWhiteboard: boolean;
   strokeWidth?: number;
+  isTeacher?: boolean;
 }
 
 interface ColorSwatch {
@@ -65,7 +66,7 @@ const HIGHLIGHTER_PALETTE: ColorSwatch[] = [
   { key: 'grey', hex: '#8B8B8B', name: 'Grey' },
 ];
 
-export default function LeftRail({ editor, showWhiteboard, strokeWidth = 1.5 }: LeftRailProps) {
+export default function LeftRail({ editor, showWhiteboard, strokeWidth = 1.5, isTeacher = false }: LeftRailProps) {
   // 1. Null Guard - render nothing if editor is null or whiteboard is hidden
   if (!editor || !showWhiteboard) return null;
 
@@ -219,7 +220,7 @@ export default function LeftRail({ editor, showWhiteboard, strokeWidth = 1.5 }: 
   const currentPalette = currentTool === 'highlight' ? HIGHLIGHTER_PALETTE : PALETTE;
 
   return (
-    <div className="w-[52px] h-full bg-surface border-r border-border flex flex-col justify-between py-4 select-none z-[60] relative">
+    <div className="w-[52px] shrink-0 h-full bg-surface border-r border-border flex flex-col justify-between py-4 select-none z-[110] relative">
       
       {/* SECTION A: Drawing Tools */}
       <div className="flex flex-col items-center gap-2.5">
@@ -330,48 +331,50 @@ export default function LeftRail({ editor, showWhiteboard, strokeWidth = 1.5 }: 
 
       </div>
 
-      {/* SECTION B: Canvas Controls */}
-      <div className="flex flex-col items-center gap-2.5 border-t border-border/40 pt-4">
-        
-        {/* Add Page */}
-        <Tooltip content="Add Page" align="left">
-          <button
-            onClick={() => addHandDrawnPage(editor)}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors cursor-pointer"
-          >
-            <IconPlus className="w-5 h-5" strokeWidth={strokeWidth} />
-          </button>
-        </Tooltip>
+      {/* SECTION B: Canvas Controls — Teacher only */}
+      {isTeacher && (
+        <div className="flex flex-col items-center gap-2.5 border-t border-border/40 pt-4">
+          
+          {/* Add Page */}
+          <Tooltip content="Add Page" align="left">
+            <button
+              onClick={() => addHandDrawnPage(editor)}
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors cursor-pointer"
+            >
+              <IconPlus className="w-5 h-5" strokeWidth={strokeWidth} />
+            </button>
+          </Tooltip>
 
-        {/* Zoom to Fit */}
-        <Tooltip content="Zoom to Fit" align="left">
-          <button
-            onClick={() => editor.zoomToFit()}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors cursor-pointer"
-          >
-            <IconMaximize className="w-5 h-5" strokeWidth={strokeWidth} />
-          </button>
-        </Tooltip>
+          {/* Zoom to Fit */}
+          <Tooltip content="Zoom to Fit" align="left">
+            <button
+              onClick={() => editor.zoomToFit()}
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors cursor-pointer"
+            >
+              <IconMaximize className="w-5 h-5" strokeWidth={strokeWidth} />
+            </button>
+          </Tooltip>
 
-        {/* Import Image/PDF file */}
-        <Tooltip content="Upload PDF/Image" align="left">
-          <label className={`w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors select-none ${isImporting ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
-            {isImporting ? (
-              <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <IconUpload className="w-5 h-5" strokeWidth={strokeWidth} />
-            )}
-            <input
-              type="file"
-              accept="application/pdf, image/*"
-              disabled={isImporting}
-              onChange={handleImportFile}
-              className="hidden"
-            />
-          </label>
-        </Tooltip>
+          {/* Import Image/PDF file */}
+          <Tooltip content="Upload PDF/Image" align="left">
+            <label className={`w-10 h-10 rounded-lg flex items-center justify-center text-text-muted hover:bg-surface-hi hover:text-text transition-colors select-none ${isImporting ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+              {isImporting ? (
+                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <IconUpload className="w-5 h-5" strokeWidth={strokeWidth} />
+              )}
+              <input
+                type="file"
+                accept="application/pdf, image/*"
+                disabled={isImporting}
+                onChange={handleImportFile}
+                className="hidden"
+              />
+            </label>
+          </Tooltip>
 
-      </div>
+        </div>
+      )}
 
       {/* PEN / HIGHLIGHTER CONFIG POPUP */}
       {showPenSettings && (

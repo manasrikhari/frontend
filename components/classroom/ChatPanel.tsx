@@ -60,7 +60,7 @@ export default function ChatPanel({
   // Determine wrapper classes dynamically based on mobile vs pinned vs unpinned overlay on desktop
   const getWrapperClasses = () => {
     if (isMobile) {
-      return 'fixed inset-0 w-full h-full z-30 bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col font-sans';
+      return 'fixed inset-0 w-full h-full z-[120] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col font-sans';
     }
     if (isPinned) {
       return 'w-80 shrink-0 h-full border-l border-border bg-surface flex flex-col relative z-30 font-sans';

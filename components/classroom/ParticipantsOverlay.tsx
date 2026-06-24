@@ -28,6 +28,7 @@ interface ParticipantsOverlayProps {
   onToggleStudentPermission?: (identity: string, type: 'whiteboard' | 'screenshare') => void;
   onClose: () => void;
   onStartDM: (p: Participant) => void;
+  isMobile?: boolean;
 }
 
 export default function ParticipantsOverlay({
@@ -43,6 +44,7 @@ export default function ParticipantsOverlay({
   onToggleStudentPermission,
   onClose,
   onStartDM,
+  isMobile = false,
 }: ParticipantsOverlayProps) {
   
   const [expandedSid, setExpandedSid] = useState<string | null>(null);
@@ -168,16 +170,27 @@ export default function ParticipantsOverlay({
   return (
     <div 
       ref={containerRef}
-      className="absolute right-4 top-4 w-[340px] max-h-[60vh] overflow-y-auto z-50 bg-surface border border-border rounded-xl shadow-2xl p-4 flex flex-col gap-3 scrollbar-thin text-text animate-in fade-in zoom-in-95 duration-150 font-sans"
+      className={isMobile
+        ? 'fixed inset-0 z-[130] bg-[#090d1a]/98 backdrop-blur-2xl flex flex-col font-sans'
+        : 'absolute right-4 top-4 w-[340px] max-h-[60vh] overflow-y-auto z-50 bg-surface border border-border rounded-xl shadow-2xl p-4 flex flex-col gap-3 scrollbar-thin text-text animate-in fade-in zoom-in-95 duration-150 font-sans'
+      }
     >
       
-      {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-border/40 select-none">
-        <div className="flex flex-col">
-          <span className="text-xs font-bold uppercase tracking-wider text-text-muted">In Call</span>
-          <span className="text-sm font-extrabold text-white">Participants ({participants.length})</span>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Mobile-only top bar */}
+      {isMobile ? (
+        <div className="h-14 border-b border-border/20 flex items-center justify-between px-4 bg-surface/30 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              type="button"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-[#C2CCDE] hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+            >
+              <IconX className="w-5 h-5" />
+            </button>
+            <span className="text-base font-bold text-white tracking-wide">
+              Participants ({participants.length})
+            </span>
+          </div>
           {isTeacher && (
             <button
               onClick={handleMuteAll}
@@ -187,14 +200,36 @@ export default function ParticipantsOverlay({
               Mute All
             </button>
           )}
-          <button 
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg hover:bg-surface-hi flex items-center justify-center text-text-muted hover:text-white transition-colors cursor-pointer"
-          >
-            <IconX className="w-4 h-4" />
-          </button>
         </div>
-      </div>
+      ) : (
+        /* Desktop header */
+        <div className="flex items-center justify-between pb-2 border-b border-border/40 select-none">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold uppercase tracking-wider text-text-muted">In Call</span>
+            <span className="text-sm font-extrabold text-white">Participants ({participants.length})</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isTeacher && (
+              <button
+                onClick={handleMuteAll}
+                disabled={loadingActions['mute-all']}
+                className="px-2.5 py-1 rounded bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 text-[10px] font-bold cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Mute All
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              className="w-7 h-7 rounded-lg hover:bg-surface-hi flex items-center justify-center text-text-muted hover:text-white transition-colors cursor-pointer"
+            >
+              <IconX className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Content — scrollable on mobile */}
+      <div className={isMobile ? 'flex-1 overflow-y-auto p-4 flex flex-col gap-3' : 'contents'}>
 
       {/* Global permissions row (Teacher Only) */}
       {isTeacher && (
@@ -419,7 +454,8 @@ export default function ParticipantsOverlay({
             </div>
           );
         })}
-      </div>
+      </div>{/* end participant list */}
+      </div>{/* end scrollable content */}
 
     </div>
   );

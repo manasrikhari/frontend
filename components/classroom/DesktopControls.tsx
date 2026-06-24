@@ -275,7 +275,7 @@ export default function DesktopControls({
 
           {/* Audio selector menu */}
           {showMicMenu && (
-            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-1.5 border-b border-white/5 select-none text-left">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/40">Select Microphone</span>
               </div>
@@ -397,7 +397,7 @@ export default function DesktopControls({
 
           {/* Camera selector menu */}
           {showCamMenu && (
-            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 border border-white/10 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-1.5 border-b border-white/5 select-none text-left">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2CCDE]/40">Select Camera</span>
               </div>
@@ -541,7 +541,7 @@ export default function DesktopControls({
 
           {/* Adjust View Dropdown Menu */}
           {showLayoutMenu && (
-            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-64 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3 py-2 border-b border-white/5 select-none text-left">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Adjust view</span>
               </div>
@@ -673,7 +673,7 @@ export default function DesktopControls({
 
           {/* Devices Settings Menu */}
           {showDeviceSettings && (
-            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
+            <div className="absolute bottom-[68px] left-1/2 -translate-x-1/2 w-72 bg-[#0b0f19]/95 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-2.5 flex flex-col gap-1 text-[#C2CCDE] z-[200] animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans">
               <div className="px-3.5 py-2 border-b border-white/5 flex items-center justify-between select-none">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#C2CCDE]/40">Settings</span>
                 {isTeacher && (

@@ -157,29 +157,10 @@ export default function Whiteboard({
   const isTeacherRef = useRef(isTeacher);
   const isWritableRef = useRef(isWritable);
 
-  const [stylusMode, setStylusMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('whiteboard_stylus_mode');
-      return saved ? saved === 'true' : false;
-    }
-    return false;
-  });
-
-  const stylusModeRef = useRef(stylusMode);
+  const stylusMode = true;
+  const stylusModeRef = { current: true };
   const activeTouchPointersRef = useRef<Set<number>>(new Set());
   const previousToolRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    stylusModeRef.current = stylusMode;
-    localStorage.setItem('whiteboard_stylus_mode', String(stylusMode));
-    if (!stylusMode) {
-      activeTouchPointersRef.current.clear();
-      if (editor && previousToolRef.current) {
-        editor.setCurrentTool(previousToolRef.current);
-        previousToolRef.current = null;
-      }
-    }
-  }, [stylusMode, editor]);
 
   // Keep refs up-to-date
   useEffect(() => {
@@ -582,9 +563,12 @@ export default function Whiteboard({
       const pointerType = info.pointerType || info.srcEvent?.pointerType;
       const pointerId = info.pointerId ?? info.srcEvent?.pointerId;
 
-      // Auto-detect stylus: if pen input is detected and we are not in stylusMode, auto-enable it
-      if (pointerType === 'pen' && !stylusModeRef.current) {
-        setStylusMode(true);
+      // If stylus pen is used and we are currently in hand tool but have a saved previous tool, restore it immediately
+      if (pointerType === 'pen') {
+        if (editor.getCurrentToolId() === 'hand' && previousToolRef.current) {
+          editor.setCurrentTool(previousToolRef.current);
+          previousToolRef.current = null;
+        }
       }
 
       if (stylusModeRef.current && pointerType === 'touch') {
@@ -645,37 +629,7 @@ export default function Whiteboard({
         overlayUtils={[HiddenCollaboratorCursorOverlayUtil, HiddenCollaboratorHintOverlayUtil]}
       />
 
-      {/* Stylus Mode Toggle Control for active writers */}
-      {(isTeacher || isWritable) && (
-        <div className="absolute top-4 right-4 z-40 pointer-events-auto select-none animate-in fade-in duration-200">
-          <div className="flex items-center p-1 bg-[#0c101d]/90 border border-zinc-700/50 backdrop-blur-md rounded-full shadow-lg">
-            <button
-              onClick={() => setStylusMode(false)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-sans cursor-pointer transition-all duration-200 ${
-                !stylusMode
-                  ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Draw with your finger or mouse"
-            >
-              <Hand className="w-3.5 h-3.5" />
-              <span>Finger Draw</span>
-            </button>
-            <button
-              onClick={() => setStylusMode(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-sans cursor-pointer transition-all duration-200 ${
-                stylusMode
-                  ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Pan with your finger, draw only with a stylus"
-            >
-              <Pen className="w-3.5 h-3.5" />
-              <span>Stylus Mode</span>
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Read-Only Mode Status Badge for Students */}
       {!isTeacher && !isWritable && (

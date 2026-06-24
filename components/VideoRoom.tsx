@@ -220,25 +220,54 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const [pinnedTrackSid, setPinnedTrackSid] = useState<string | null>(null);
   const [spotlightTrackSid, setSpotlightTrackSid] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileControlsVisible, setMobileControlsVisible] = useState(true);
+  const [isPhone, setIsPhone] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
 
   const layoutLandscape = isLandscape || isFullscreen;
 
   const roomContainerRef = useRef<HTMLDivElement>(null);
+  const isMouseOverControlsRef = useRef(false);
+  // Used by whiteboard tap handler to track pointer start position/time for gesture detection
+  const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const checkIsMobileDevice = () => {
-      const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-      return /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase());
-    };
-    setIsMobile(checkIsMobileDevice());
+
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const lowercaseUa = ua.toLowerCase();
+    
+    // Check if it's specifically a phone
+    const isPhoneDevice = /iphone|ipod/.test(lowercaseUa) || 
+                          (/android/.test(lowercaseUa) && /mobile/.test(lowercaseUa)) ||
+                          /blackberry|iemobile|opera mini/i.test(lowercaseUa);
+                          
+    // Check if it's specifically a tablet
+    const isTabletDevice = /ipad/.test(lowercaseUa) || 
+                           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                           (/android/.test(lowercaseUa) && !/mobile/.test(lowercaseUa)) ||
+                           /tablet|playbook|silk/i.test(lowercaseUa);
+
+    setIsPhone(isPhoneDevice);
+    setIsTablet(isTabletDevice);
 
     const handleResize = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const landscape = width > height;
+      
+      setIsLandscape(landscape);
+
+      const isPortraitTablet = isTabletDevice && !landscape;
+      const isSmallScreen = width < 768;
+      
+      // Mobile controls/layout condition
+      const treatAsMobile = isPhoneDevice || isPortraitTablet || isSmallScreen;
+      setIsMobile(treatAsMobile);
     };
+
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
@@ -265,37 +294,13 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Inactivity timer to auto-hide controls on mobile
-  useEffect(() => {
-    if (!isMobile) return;
-    let timer: NodeJS.Timeout;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        setMobileControlsVisible(false);
-      }, 5000); // 5 seconds
-    };
 
-    if (mobileControlsVisible) {
-      resetTimer();
-      const handleUserActivity = () => {
-        resetTimer();
-      };
-      window.addEventListener('mousemove', handleUserActivity);
-      window.addEventListener('pointerdown', handleUserActivity);
-      window.addEventListener('keydown', handleUserActivity);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('mousemove', handleUserActivity);
-        window.removeEventListener('pointerdown', handleUserActivity);
-        window.removeEventListener('keydown', handleUserActivity);
-      };
-    }
-  }, [isMobile, mobileControlsVisible]);
 
   // Toggle controls on viewport click (ignoring interactive elements and controls bar itself)
+  // Note: .whiteboard-container has its own pointer handlers below.
+  // .screenshare-container is intentionally NOT excluded — tapping screen-share toggles controls.
   const handleViewportClick = useCallback((e: React.MouseEvent) => {
-    if (!isMobile) return;
+    if (!isMobile || (!isPhone && !isTablet)) return;
     const target = e.target as HTMLElement;
     if (
       target.closest('button') ||
@@ -305,14 +310,14 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       target.closest('[role="button"]') ||
       target.closest('a') ||
       target.closest('.whiteboard-container') ||
-      target.closest('.screenshare-container') ||
       target.closest('.student-sidebar') ||
       target.closest('.controls-bar')
     ) {
       return;
     }
-    setMobileControlsVisible(prev => !prev);
-  }, [isMobile]);
+    setControlsVisible(prev => !prev);
+  }, [isMobile, isPhone, isTablet]);
+
 
   // Toggle fullscreen and lock screen orientation
   const handleToggleFullscreen = useCallback(async () => {
@@ -346,11 +351,11 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
       if (layoutLandscape || isFullscreen || showWhiteboard) {
         setIsFocusMode(true);
         setLayoutMode('focus');
-        setMobileControlsVisible(true); // Always show controls overlay initially in landscape / fullscreen / whiteboard
+        setControlsVisible(true); // Always show controls overlay initially in landscape / fullscreen / whiteboard
       } else {
         setIsFocusMode(false);
         setLayoutMode(showSplitLayout ? 'sidebar' : 'tiled');
-        setMobileControlsVisible(true);
+        setControlsVisible(true);
       }
     }
   }, [isMobile, layoutLandscape, isFullscreen, showWhiteboard, showSplitLayout]);
@@ -409,6 +414,82 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
   const micMenuRef = useRef<HTMLDivElement>(null);
   const [showCamMenu, setShowCamMenu] = useState(false);
   const camMenuRef = useRef<HTMLDivElement>(null);
+
+  // Inactivity timer to auto-hide controls (Only for desktop narrow viewport < 768px)
+  useEffect(() => {
+    const isDesktopNarrow = !isPhone && !isTablet && isMobile;
+    
+    if (!isDesktopNarrow) {
+      // If we are on desktop wide (or tablet landscape) where isMobile is false,
+      // make sure controls are always visible (fixed bottom bar)
+      if (!isPhone && !isTablet && !isMobile) {
+        setControlsVisible(true);
+      }
+      return;
+    }
+    
+    let timer: NodeJS.Timeout | null = null;
+    let timerRunning = false;
+
+    const resetTimer = () => {
+      if (timer) clearTimeout(timer);
+      timerRunning = true;
+      timer = setTimeout(() => {
+        // Auto-hide only if:
+        // - no menus/popovers are open
+        // - mouse is not hovering over the controls bar
+        if (
+          !showMicMenu &&
+          !showCamMenu &&
+          !showLayoutMenu &&
+          !isMouseOverControlsRef.current
+        ) {
+          setControlsVisible(false);
+          timerRunning = false;
+        }
+      }, 3500); // 3.5 seconds
+    };
+
+    const handleUserActivity = (e: MouseEvent | TouchEvent) => {
+      const mouseEvent = e as MouseEvent;
+      if (mouseEvent.clientY >= window.innerHeight * 0.85) {
+        setControlsVisible(true);
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        timerRunning = false;
+      } else {
+        if (!timerRunning) {
+          resetTimer();
+        }
+      }
+    };
+
+    if (controlsVisible) {
+      resetTimer();
+      window.addEventListener('mousemove', handleUserActivity);
+      window.addEventListener('pointerdown', handleUserActivity as any);
+      return () => {
+        if (timer) clearTimeout(timer);
+        window.removeEventListener('mousemove', handleUserActivity);
+        window.removeEventListener('pointerdown', handleUserActivity as any);
+      };
+    } else {
+      // If hidden, show controls ONLY when mouse moves or is clicked near the bottom (bottom 15% of viewport)
+      const handleActivityHidden = (e: MouseEvent) => {
+        if (e.clientY >= window.innerHeight * 0.85) {
+          setControlsVisible(true);
+        }
+      };
+      window.addEventListener('mousemove', handleActivityHidden);
+      window.addEventListener('pointerdown', handleActivityHidden as any);
+      return () => {
+        window.removeEventListener('mousemove', handleActivityHidden);
+        window.removeEventListener('pointerdown', handleActivityHidden as any);
+      };
+    }
+  }, [controlsVisible, showMicMenu, showCamMenu, showLayoutMenu, isMobile, isPhone, isTablet]);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   useEffect(() => {
@@ -539,6 +620,54 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
     if (!localParticipant) return false;
     return !!allowedScreenShareStudents[localParticipant.identity];
   }, [isTeacher, globalScreenShareAllowed, localParticipant, allowedScreenShareStudents]);
+
+  // --- Whiteboard tap-to-toggle controls ---
+  // For read-only students: any touch toggles controls.
+  // For students with edit permission (isWhiteboardAllowed && !isTeacher): only a stationary tap
+  // (pointer moved <8px and held <300ms) toggles controls; a drawing stroke is ignored.
+  const handleWhiteboardPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!isMobile || (!isPhone && !isTablet)) return;
+    // Do not capture pointer here — let tldraw handle drawing normally
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  }, [isMobile, isPhone, isTablet]);
+
+  const handleWhiteboardPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isMobile || (!isPhone && !isTablet)) return;
+    const target = e.target as HTMLElement;
+    // Never toggle when tapping interactive elements
+    if (
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('select') ||
+      target.closest('[role="button"]') ||
+      target.closest('a')
+    ) {
+      pointerStartRef.current = null;
+      return;
+    }
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start) return;
+
+    const dx = Math.abs(e.clientX - start.x);
+    const dy = Math.abs(e.clientY - start.y);
+    const dt = Date.now() - start.time;
+    const isSimpleTap = dx < 8 && dy < 8 && dt < 300;
+
+    // Read-only mode (student without edit permission) or teacher: toggle on any simple tap
+    if (!isWhiteboardAllowed || isTeacher) {
+      if (isSimpleTap) {
+        setControlsVisible(prev => !prev);
+      }
+      return;
+    }
+
+    // Student with edit permission: only toggle on a stationary tap (not a stroke/draw)
+    if (isSimpleTap) {
+      setControlsVisible(prev => !prev);
+    }
+    // else: was a drag/draw — do not toggle, let tldraw handle the stroke
+  }, [isMobile, isPhone, isTablet, isWhiteboardAllowed, isTeacher]);
 
   const handleToggleGlobalPermission = useCallback(async (type: 'whiteboard' | 'screenshare') => {
     if (!isTeacher || !localParticipant) return;
@@ -1316,6 +1445,37 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
         ref={roomContainerRef}
         className="flex flex-col h-screen w-screen bg-[#030712] text-foreground overflow-hidden relative font-sans"
       >
+        {/* Mobile Top Bar — slides up/down in sync with footer controls */}
+        <div
+          className={`absolute top-0 left-0 right-0 z-50 h-[48px] bg-[#090d1a]/95 border-b border-white/10 flex items-center justify-between px-4 select-none transition-all duration-300 pointer-events-auto ${
+            controlsVisible
+              ? 'translate-y-0 opacity-100'
+              : '-translate-y-full opacity-0 pointer-events-none'
+          }`}
+        >
+          {/* Left: Branding & Timer */}
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-wider text-white">
+              OpenGrapes Live
+            </span>
+            <div className="w-px h-4 bg-white/20" />
+            <span className="text-xs font-mono font-bold text-accent-hi">
+              {formatDuration(elapsedSeconds)}
+            </span>
+          </div>
+          {/* Right: Participants Button */}
+          <button
+            onClick={() => setShowParticipantsOverlay(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none ${
+              showParticipantsOverlay
+                ? 'bg-accent text-white shadow-lg shadow-accent/25'
+                : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <IconUsers className="w-3.5 h-3.5" />
+            <span>{participants.length}</span>
+          </button>
+        </div>
         
         {/* Reconnecting Overlay */}
         {showReconnecting && (
@@ -1341,6 +1501,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               editor={editor} 
               showWhiteboard={showWhiteboard} 
               strokeWidth={STROKE_WIDTH}
+              isTeacher={isTeacher}
             />
           )}
 
@@ -1355,7 +1516,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               
 
               
-              {!(isMobile && !layoutLandscape && mobileControlsVisible) && (
+              {!(isMobile && !layoutLandscape && controlsVisible) && (
                 <FloatingTeacherTile
                   teacherTrack={teacherTrack}
                   isFocusMode={isFocusMode}
@@ -1385,7 +1546,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               )}
 
               {/* Fullscreen Button for Mobile (when Whiteboard or Screen Sharing is active) */}
-              {isMobile && (showWhiteboard || (hasScreenShare && screenShareTrackRef)) && (
+              {isMobile && (isPhone || isTablet) && (showWhiteboard || (hasScreenShare && screenShareTrackRef)) && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -1393,8 +1554,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                     handleToggleFullscreen();
                   }}
                   className={`absolute right-4 z-50 p-2.5 rounded-xl bg-black/60 hover:bg-black/85 text-white/80 hover:text-white border border-white/10 shadow-lg cursor-pointer transition-all duration-200 ${
-                    mobileControlsVisible
-                      ? 'bottom-24'
+                    controlsVisible
+                      ? 'bottom-20'
                       : 'bottom-4'
                   }`}
                   title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
@@ -1408,15 +1569,19 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
               )}
 
               {/* Whiteboard Wrapper (always mounted but hidden if not showWhiteboard to preserve editor state) */}
-              <div className={`z-10 bg-white whiteboard-container transition-all duration-300 ${
-                showWhiteboard 
-                  ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl overflow-hidden ${
-                      mobileControlsVisible
-                        ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
-                        : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
-                    }`
-                  : 'absolute inset-0 opacity-0 pointer-events-none'
-              }`}>
+              <div
+                className={`z-10 bg-white whiteboard-container transition-all duration-300 ${
+                  showWhiteboard 
+                    ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl overflow-hidden ${
+                        controlsVisible
+                          ? 'w-[calc(100%-32px)] max-h-[calc(100%-80px)]'
+                          : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
+                      }`
+                    : 'absolute inset-0 opacity-0 pointer-events-none'
+                }`}
+                onPointerDown={handleWhiteboardPointerDown}
+                onPointerUp={handleWhiteboardPointerUp}
+              >
                 <WhiteboardWrapper 
                   roomName={roomName} 
                   userName={userName} 
@@ -1439,8 +1604,8 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                     <div className={`overflow-hidden border border-border/20 bg-surface/50 shadow-2xl relative rounded-xl screenshare-container transition-all duration-300 ${
                       isMobile
                         ? `absolute inset-0 m-auto aspect-video border border-white/10 rounded-lg shadow-2xl ${
-                            mobileControlsVisible
-                              ? 'w-[calc(100%-32px)] max-h-[calc(100%-96px)]'
+                            controlsVisible
+                              ? 'w-[calc(100%-32px)] max-h-[calc(100%-80px)]'
                               : 'w-[calc(100%-32px)] max-h-[calc(100%-32px)]'
                           }`
                         : 'w-full h-full max-h-full aspect-video'
@@ -1484,9 +1649,10 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
                 setLayoutMode(nextFocus ? 'focus' : 'sidebar');
               }}
               isMobile={isMobile}
-              mobileControlsVisible={mobileControlsVisible}
+              mobileControlsVisible={controlsVisible}
               isLandscape={layoutLandscape}
               isFullscreen={isFullscreen}
+              hasLeftRail={isWhiteboardAllowed && showWhiteboard}
             />
           )}
 
@@ -1518,37 +1684,61 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
         {/* BOTTOM ROW: Full-width Google Meet Style Footer */}
         {!activeRightPanelTab && (
-          <Controls
+          <div
+            onMouseEnter={() => { isMouseOverControlsRef.current = true; setControlsVisible(true); }}
+            onMouseLeave={() => { isMouseOverControlsRef.current = false; }}
+          >
+            <Controls
+              roomName={roomName}
+              isMicrophoneEnabled={isMicrophoneEnabled}
+              toggleMicrophone={toggleMicrophone}
+              isCameraEnabled={isCameraEnabled}
+              toggleCamera={toggleCamera}
+              isScreenShareEnabled={isScreenShareEnabled}
+              toggleScreenShare={toggleScreenShare}
+              showWhiteboard={showWhiteboard}
+              toggleWhiteboard={toggleWhiteboard}
+              isTeacher={isTeacher}
+              isExporting={isExporting}
+              handleEndClass={handleEndClass}
+              onLeave={() => {
+                if (isTeacher) {
+                  setShowEndCallModal(true);
+                } else {
+                  onLeave();
+                }
+              }}
+              exportedPdfUrl={exportedPdfUrl}
+              activeRightPanelTab={activeRightPanelTab}
+              setActiveRightPanelTab={setActiveRightPanelTab}
+              isWhiteboardAllowed={isWhiteboardAllowed}
+              isScreenShareAllowed={isScreenShareAllowed}
+              layoutMode={layoutMode}
+              setLayoutMode={setLayoutMode}
+              showSplitLayout={showSplitLayout}
+              isMobile={isMobile}
+              mobileControlsVisible={controlsVisible}
+              onHideControls={() => setControlsVisible(false)}
+            />
+          </div>
+        )}
+
+        {/* Participants Overlay (mobile — full screen fixed panel) */}
+        {showParticipantsOverlay && localParticipant && (
+          <ParticipantsOverlay
+            participants={participants}
+            localParticipant={localParticipant}
             roomName={roomName}
-            isMicrophoneEnabled={isMicrophoneEnabled}
-            toggleMicrophone={toggleMicrophone}
-            isCameraEnabled={isCameraEnabled}
-            toggleCamera={toggleCamera}
-            isScreenShareEnabled={isScreenShareEnabled}
-            toggleScreenShare={toggleScreenShare}
-            showWhiteboard={showWhiteboard}
-            toggleWhiteboard={toggleWhiteboard}
             isTeacher={isTeacher}
-            isExporting={isExporting}
-            handleEndClass={handleEndClass}
-            onLeave={() => {
-              if (isTeacher) {
-                setShowEndCallModal(true);
-              } else {
-                onLeave();
-              }
-            }}
-            exportedPdfUrl={exportedPdfUrl}
-            activeRightPanelTab={activeRightPanelTab}
-            setActiveRightPanelTab={setActiveRightPanelTab}
-            isWhiteboardAllowed={isWhiteboardAllowed}
-            isScreenShareAllowed={isScreenShareAllowed}
-            layoutMode={layoutMode}
-            setLayoutMode={setLayoutMode}
-            showSplitLayout={showSplitLayout}
-            isMobile={isMobile}
-            mobileControlsVisible={mobileControlsVisible}
-            onHideControls={() => setMobileControlsVisible(false)}
+            globalWhiteboardAllowed={globalWhiteboardAllowed}
+            globalScreenShareAllowed={globalScreenShareAllowed}
+            allowedWhiteboardStudents={allowedWhiteboardStudents}
+            allowedScreenShareStudents={allowedScreenShareStudents}
+            onToggleGlobalPermission={handleToggleGlobalPermission}
+            onToggleStudentPermission={handleToggleStudentPermission}
+            onClose={() => setShowParticipantsOverlay(false)}
+            onStartDM={handleStartDM}
+            isMobile={true}
           />
         )}
 
@@ -1678,6 +1868,7 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
           editor={editor} 
           showWhiteboard={showWhiteboard} 
           strokeWidth={STROKE_WIDTH}
+          isTeacher={isTeacher}
         />
       )}
 
@@ -1836,7 +2027,9 @@ function RoomContent({ roomName, userName, onLeave, onConnected, sessionToken }:
 
       </div>
       {/* 4. BOTTOM BAR (72px, spans full width, row 3) */}
-      <div className="col-span-2 h-[72px] bg-surface border-t border-border px-6 py-1.5 flex items-center justify-between relative z-50">
+      <div 
+        className="col-span-2 h-[72px] bg-surface border-t border-border px-6 py-1.5 flex items-center justify-between z-50 relative"
+      >
         
         {/* Controls container (spaced evenly) */}
         <div className="flex items-center gap-3">
